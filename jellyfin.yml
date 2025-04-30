@@ -127,9 +127,22 @@
           shell: certbot certonly --nginx --agree-tos --redirect --hsts --staple-ocsp --email nicholasvmoore@gmail.com -d jellyfin.moorenix.com
       when: not jellyfin_cert_exists.stat.exists or not certificate_is_not_valid
 
-    - name: Print all available facts
-      ansible.builtin.debug:
-        var: ansible_facts
+    - name: Create Certbot renewal SystemD Unit
+      ansible.builtin.template:
+        src: templates/certbot-renew.service.j2
+        dest: /etc/systemd/system/certbot-renew.service
+
+    - name: Create Certbot renewal SystemD Timer
+      ansible.builtin.template:
+        src: templates/certbot-renew.timer.j2
+        dest: /etc/systemd/system/certbot-renew.timer
+
+    - name: Enable automatic renewal SystemD Timer
+      ansible.builtin.systemd_service:
+        name: cerbot-renew.timer
+        daemon_reload: yes
+        state: started
+        enabled: yes
 
     - name: Configure nginx vhost
       ansible.builtin.template:
