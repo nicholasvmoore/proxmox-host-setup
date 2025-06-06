@@ -1,0 +1,160 @@
+---
+
+- name: Install Jellyfin
+  hosts: jellyfin
+  vars_files:
+    - vars/proxmox_vars.yml
+
+  handlers:
+    - name: Restart server
+      ansible.builtin.reboot:
+        msg: "Server Upgraded, needs to be restarted"
+        connect_timeout: 5
+
+    - name: Reload nginx
+      ansible.builtin.systemd_service:
+        state: reloaded
+        name: nginx
+
+  tasks:
+    - name: Install server tooling
+      ansible.builtin.include_tasks: tasks/server_tooling.yml
+
+    - name: Install Jellyfin
+      block:
+        - name: Add Jellyfin gpg key
+          ansible.builtin.get_url:
+            url: https://repo.jellyfin.org/jellyfin_team.gpg.key
+            dest: /etc/apt/trusted.gpg.d/jellyfin_team.asc
+            mode: 0644
+            owner: root
+            group: root
+
+        - name: Add Jellyfin Repository
+          ansible.builtin.apt_repository:
+            repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/jellyfin_team.asc] https://repo.jellyfin.org/ubuntu/ {{ ansible_facts['distribution_release'] }} main"
+            state: present
+
+        - name: Install Jellyfin
+          ansible.builtin.apt:
+            name:
+              - jellyfin
+              - jellyfin-ffmpeg7
+              - intel-media-va-driver-non-free
+              - intel-gpu-tools
+              - intel-opencl-icd
+            state: present
+            update_cache: true
+
+        - name: Enable Jellyfin service
+          ansible.builtin.systemd:
+            name: jellyfin
+            state: started
+            enabled: true
+
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Install nginx
+      block:
+        - name: Install nginx
+          ansible.builtin.package:
+            name: nginx
+            state: present
+
+        - name: Enable nginx service
+          ansible.builtin.systemd:
+            name: nginx
+            state: started
+            enabled: true
+
+            # TODO: Need to move the configuration of the virtual host out of there and after the certificate is created.
+            # Putting it here nerfs the certbot request.
+
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Install Certbot OS Package
+      block:
+        - name: Install Certbot Dependencies
+          ansible.builtin.package:
+            name:
+              - python3-venv
+              - libaugeas0
+
+        - name: Create Certbot Directory
+          ansible.builtin.file:
+            path: /opt/certbot
+            state: directory
+
+        - name: Create dhparams from mozilla
+          ansible.builtin.get_url:
+            url: https://ssl-config.mozilla.org/ffdhe2048.txt
+            dest: /etc/letsencrypt/ssl-dhparams.pem
+
+        - name: Create Certbot requirements file
+          ansible.builtin.template:
+            src: templates/certbot_requirements.j2
+            dest: /opt/certbot/requirements.txt
+
+        - name: Create Certbot venv
+          ansible.builtin.pip:
+            virtualenv: /opt/certbot/
+            virtualenv_command: python3 -m venv
+            requirements: /opt/certbot/requirements.txt
+
+        - name: Prepare the Certbot command
+          ansible.builtin.file:
+            src: /opt/certbot/bin/certbot
+            dest: /usr/bin/certbot
+            state: link
+
+      when: ansible_facts['os_family'] == 'Debian'
+
+      # TODO: Need to create the certbot_create_command and set some facts around the certificate's existence
+
+    - name: Check if certificate already exists
+      stat:
+        path: /etc/letsencrypt/live/{{ jellyfin_public_domain }}/cert.pem
+      register: jellyfin_cert_exists
+
+    - name: Check if certificate is valid
+      shell: "certbot certificates --cert-name {{ jellyfin_public_domain }} | grep Domains | cut -d':' -f2"
+      changed_when: false
+      register: certificate_is_not_valid
+
+    - name: Generate or renew certificate
+      block:
+        - name: Generate Certificate
+          shell: certbot certonly --nginx --agree-tos --redirect --hsts --staple-ocsp --email nicholasvmoore@gmail.com -d jellyfin.moorenix.com
+      when: not jellyfin_cert_exists.stat.exists or not certificate_is_not_valid
+
+    - name: Create Certbot renewal SystemD Unit
+      ansible.builtin.template:
+        src: templates/certbot-renew.service.j2
+        dest: /etc/systemd/system/certbot-renew.service
+
+    - name: Create Certbot renewal SystemD Timer
+      ansible.builtin.template:
+        src: templates/certbot-renew.timer.j2
+        dest: /etc/systemd/system/certbot-renew.timer
+
+    - name: Enable automatic renewal SystemD Timer
+      ansible.builtin.systemd_service:
+        name: cerbot-renew.timer
+        daemon_reload: yes
+        state: started
+        enabled: yes
+
+    - name: Configure nginx vhost
+      ansible.builtin.template:
+        src: templates/nginx_vhost.j2
+        dest: /etc/nginx/conf.d/jellyfin.conf
+        backup: true
+        mode: 0644
+        owner: root
+        group: root
+      notify: Reload nginx
+
+    #- name: Request certificate for jellyfin
+    #  command: "{{ certbot_create_command }}"
+    #  when: 
+

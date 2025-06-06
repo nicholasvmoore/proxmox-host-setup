@@ -1,0 +1,6 @@
+[Unit]
+Description=Certbot Renewal
+Requires=certbot-renew.timer
+
+[Service]
+ExecStart=/usr/bin/certbot renew --post-hook "systemctl reload nginx"

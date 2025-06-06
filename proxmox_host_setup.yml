@@ -1,0 +1,107 @@
+---
+
+- name: Proxmox Host Setup
+  hosts: proxmox_hosts
+
+  vars_files:
+    - vars/proxmox_vars.yml
+
+  handlers:
+    - name: Start Jellyfin LXC Container
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 200
+        state: started
+
+  tasks:
+    - name: Install Proxmox Host Ansible dependencies
+      ansible.builtin.apt:
+        name:
+          - python3-proxmoxer
+          - python3-requests
+          - python3-paramiko
+        state: present
+      tags:
+        - proxmox_host_setup
+
+    - name: Download Ubuntu 24.04 LTS Template
+      community.general.proxmox_template:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        node: brix
+        storage: local
+        template: ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+      tags:
+        - container_templates
+        - proxmox_host_setup
+
+    - name: Create Jellyfin LXC Container
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 200
+        node: brix
+        hostname: jellyfin
+        ostemplate: 'local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst' # This is commented out and used only for the initial creation of the container.
+        ostype: ubuntu
+        disk_volume:
+          storage: ssd0
+          size: 100
+        cores: 4
+        memory: 8192
+        swap: 0
+        netif:
+          net0: "name=eth0,ip=dhcp,bridge=vmbr0"
+        onboot: true
+        password: "{{ root_password }}"
+        pubkey: "{{ root_pub_key }}"
+        # update: true # Comment this when used for initial creation of the container.
+      tags:
+        - jellyfin_container_creation
+        - jellyfin_container
+
+    - name: Add Jellyfin LXC Container custom configurations
+      ansible.builtin.blockinfile:
+        path: /etc/pve/lxc/200.conf
+        block: |
+          # Mounting the media directory from the host to the container.
+          mp0: /lun0/media,mp=/lun0/media
+
+          # Allowing Jellyfin to access the /dev/dri/renderD128 device.
+          lxc.cgroup2.devices.allow: c 226:128 rwm
+
+          # Mounting the /dev/dri/renderD128 device from the host to the container.
+          lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+
+          # We are mapping the UID of Jellyfin inside the container to the UID of the user that owns /dev/dri/renderD128.
+          # Here we are adjusting the mapping of LXC containers stopping at 107 to remap the UID to a different UID on the host.
+          lxc.idmap: u 0 100000 107
+
+          # Here we are mapping UID 107 inside the container to UID 104 on the host.
+          lxc.idmap: u 107 1000 1
+
+          # Then we map UID 108 inside the container to UID 100108 on the host.
+          # There are a maximum of 65536 UIDs in Linux. Subtract 108 from 65536 to get 65428.
+          lxc.idmap: u 108 100108 65428
+
+          # Next we are mapping the GID of Jellyfin inside the container to the GID of the group that owns /dev/dri/renderD128.
+          lxc.idmap: g 0 100000 110
+
+          # Here we are mapping GID 990 inside the container to GID 104 on the host.
+          lxc.idmap: g 110 104 1
+
+          # Then we map GID 991 inside the container to GID 100991 on the host.
+          # There are a maximum of 65536 GIDs in Linux. Subtract 111 from 65536 to get 65425.
+          lxc.idmap: g 111 100111 65425
+      notify:
+        - Start Jellyfin LXC Container
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container

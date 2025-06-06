@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer for Certbot Renewal
+
+[Timer]
+Unit=certbot-renew.service
+OnBootSec=300
+OnUnitActiveSec=1d
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,26 @@
+---
+
+- name: Install server tooling
+  block:
+    - name: Upgrade server
+      ansible.builtin.apt:
+        upgrade: yes
+        update_cache: true
+      notify:
+        - Restart server
+
+    - name: Install server tooling for Debian
+      ansible.builtin.apt:
+        name:
+          - curl
+          - gnupg
+          - wget
+          - tcpdump
+          - tmux
+          - zsh
+          - neovim
+          - tcpdump
+          - snapd
+        state: present
+        update_cache: true
+  when: ansible_facts['os_family'] == 'Debian'

@@ -1,0 +1,10 @@
+*.retry
+*/__pycache__
+*.pyc
+.cache
+.DS_Store
+.idea
+.vscode
+.venv
+.pytest_cache
+.ansible
