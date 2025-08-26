@@ -55,7 +55,7 @@
           storage: ssd0
           size: 100
         cores: 4
-        memory: 8192
+        memory: 4096
         swap: 0
         netif:
           net0: "name=eth0,ip=dhcp,bridge=vmbr0"
