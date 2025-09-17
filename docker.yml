@@ -1,0 +1,247 @@
+---
+
+- name: Create Docker LXC Container
+  hosts: proxmox_hosts
+  vars_files:
+    - vars/proxmox_vars.yml
+  tags:
+    - docker_container
+    - docker_container_creation
+  
+  handlers:
+    - import_tasks: handlers/main.yml
+        
+  tasks:
+    - name: Create Docker LXC Container
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 201
+        node: brix
+        hostname: docker
+        ostemplate: 'local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst'
+        ostype: ubuntu
+        disk_volume:
+          storage: ssd1
+          size: 100
+        cores: 8
+        memory: 16384
+        swap: 0
+        netif:
+          net0: "name=eth0,ip=dhcp,bridge=vmbr0"
+        onboot: true
+        password: "{{ root_password }}"
+        pubkey: "{{ root_pub_key }}"
+      tags:
+        - docker_container_creation
+
+    - name: Add Docker LXC Container custom configurations
+      ansible.builtin.blockinfile:
+        path: /etc/pve/lxc/201.conf
+        block: |
+          # Allowing Docker to access the Intel GPU devices
+          lxc.cgroup2.devices.allow: c 226:0 rwm
+          lxc.cgroup2.devices.allow: c 226:128 rwm
+
+          # Mounting the Intel GPU devices from the host to the container
+          lxc.mount.entry: /dev/dri/card0 dev/dri/card0 none bind,optional,create=file
+          lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+
+          # Enable nesting for Docker
+          lxc.apparmor.profile: unconfined
+          lxc.cgroup2.devices.allow: a
+          lxc.cap.drop: 
+          
+          # We need to map user and group IDs for GPU access
+          # Here we are adjusting the mapping of LXC containers stopping at 107 to remap the UID to a different UID on the host.
+          lxc.idmap: u 0 100000 107
+
+          # Here we are mapping UID 107 inside the container to UID 104 on the host.
+          lxc.idmap: u 107 1000 1
+
+          # Then we map UID 108 inside the container to UID 100108 on the host.
+          lxc.idmap: u 108 100108 65428
+
+          # Next we are mapping the GID
+          lxc.idmap: g 0 100000 110
+
+          # Here we are mapping GID 990 inside the container to GID 104 on the host.
+          lxc.idmap: g 110 104 1
+
+          # Then we map GID 991 inside the container to GID 100991 on the host.
+          lxc.idmap: g 111 100111 65425
+      notify:
+        - Start Docker LXC Container
+      tags:
+        - docker_container_configuration
+
+- name: Wait for Docker server to be online
+  hosts: docker
+  gather_facts: false
+  tags:
+    - docker_container
+    - docker_container_configuration
+  tasks:
+    - name: Wait for server to be online
+      ansible.builtin.wait_for_connection:
+
+- name: Install and Configure Docker
+  hosts: docker
+  vars_files:
+    - vars/proxmox_vars.yml
+  tags:
+    - docker_container
+    - docker_container_configuration
+    
+  handlers:
+    - import_tasks: handlers/main.yml
+
+  tasks:
+    - name: Install server tooling
+      ansible.builtin.include_tasks: tasks/server_tooling.yml
+      tags:
+        - docker_server_tooling
+
+    - name: Install Docker
+      block:
+        - name: Add Docker GPG key
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            dest: /etc/apt/trusted.gpg.d/docker.asc
+            mode: 0644
+            owner: root
+            group: root
+
+        - name: Add Docker Repository
+          ansible.builtin.apt_repository:
+            repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
+            state: present
+
+        - name: Install Docker packages
+          ansible.builtin.apt:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+              - intel-media-va-driver-non-free
+              - intel-gpu-tools
+              - intel-opencl-icd
+            state: present
+            update_cache: true
+
+        - name: Enable Docker service
+          ansible.builtin.systemd:
+            name: docker
+            state: started
+            enabled: true
+
+      when: ansible_facts['os_family'] == 'Debian'
+      tags:
+        - docker_software
+
+    - name: Configure Docker settings for Intel GPU
+      block:
+        - name: Create Docker config directory
+          ansible.builtin.file:
+            path: /etc/docker
+            state: directory
+            mode: 0755
+            owner: root
+            group: root
+
+        - name: Set Docker daemon configuration for Intel GPU
+          ansible.builtin.copy:
+            dest: /etc/docker/daemon.json
+            content: |
+              {
+                "exec-opts": ["native.cgroupdriver=systemd"],
+                "features": {
+                  "buildkit": true
+                },
+                "storage-driver": "overlay2",
+                "log-driver": "json-file",
+                "log-opts": {
+                  "max-size": "100m"
+                }
+              }
+            mode: 0644
+            owner: root
+            group: root
+          notify:
+            - Restart Docker
+
+        - name: Add Intel GPU device permissions to system
+          ansible.builtin.file:
+            path: "{{ item }}"
+            mode: '0666'
+            state: file
+          with_items:
+            - "/dev/dri/renderD128"
+            - "/dev/dri/card0"
+          notify:
+            - Restart Docker
+
+        - name: Ensure video group exists
+          ansible.builtin.group:
+            name: video
+            state: present
+
+        - name: Add Docker user to video group
+          ansible.builtin.user:
+            name: root
+            groups: video
+            append: yes
+
+      when: ansible_facts['os_family'] == 'Debian'
+      tags:
+        - docker_gpu_config
+
+    - name: Setup Intel GPU support packages
+      ansible.builtin.apt:
+        name:
+          - vainfo
+          - intel-gpu-tools
+          - mesa-va-drivers
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == 'Debian'
+      tags:
+        - docker_gpu_config
+
+    - name: Install Python Docker dependencies
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+          - python3-setuptools
+          - python3-wheel
+        state: present
+        update_cache: true
+      when: ansible_facts['os_family'] == 'Debian'
+      tags:
+        - docker_images
+        - docker_container_configuration
+
+    - name: Install Python Docker SDK
+      ansible.builtin.pip:
+        name:
+          - docker
+          - requests
+        state: present
+      tags:
+        - docker_images
+        - docker_container_configuration
+
+    - name: Pull Docker images
+      block:
+        - name: Pull Intel Analytics IPEX-LLM inference image
+          community.docker.docker_image:
+            name: intelanalytics/ipex-llm-inference-cpp-xpu:latest
+            source: pull
+            state: present
+      tags:
+        - docker_images
+        - docker_container_configuration

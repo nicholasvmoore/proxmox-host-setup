@@ -1,0 +1,6 @@
+---
+
+- name: Restart server
+  ansible.builtin.reboot:
+    msg: "Server Upgraded, needs to be restarted"
+    connect_timeout: 5

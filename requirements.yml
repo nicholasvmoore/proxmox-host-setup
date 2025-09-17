@@ -1,0 +1,16 @@
+---
+# Ansible Galaxy requirements for Proxmox Host Setup
+# Install with: ansible-galaxy install -r requirements.yml
+
+collections:
+  # Community General collection (includes proxmox modules)
+  - name: community.general
+    version: ">=7.0.0"
+    
+  # Community Docker collection (for docker_image module)  
+  - name: community.docker
+    version: ">=3.0.0"
+    
+  # Ansible POSIX collection (for advanced system tasks)
+  - name: ansible.posix
+    version: ">=1.5.0"

@@ -6,15 +6,7 @@
     - vars/proxmox_vars.yml
 
   handlers:
-    - name: Restart server
-      ansible.builtin.reboot:
-        msg: "Server Upgraded, needs to be restarted"
-        connect_timeout: 5
-
-    - name: Reload nginx
-      ansible.builtin.systemd_service:
-        state: reloaded
-        name: nginx
+    - import_tasks: handlers/main.yml
 
   tasks:
     - name: Install server tooling

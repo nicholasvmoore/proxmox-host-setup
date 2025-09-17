@@ -3,7 +3,10 @@
 - name: Proxmox Host Setup
   ansible.builtin.import_playbook: proxmox_host_setup.yml
 
-- name: "Wait for server to be online"
+- name: Docker LXC Container Setup
+  ansible.builtin.import_playbook: docker.yml
+
+- name: "Wait for Jellyfin server to be online"
   hosts: jellyfin
   gather_facts: false
   tasks:

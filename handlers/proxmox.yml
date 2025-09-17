@@ -1,0 +1,19 @@
+---
+
+- name: Start Jellyfin LXC Container
+  community.general.proxmox:
+    api_host: brix.pcola.moorenix.com
+    api_user: "{{ api_user }}"
+    api_token_id: "{{ api_token_id }}"
+    api_token_secret: "{{ api_token_secret }}"
+    vmid: 200
+    state: started
+
+- name: Start Docker LXC Container
+  community.general.proxmox:
+    api_host: brix.pcola.moorenix.com
+    api_user: "{{ api_user }}"
+    api_token_id: "{{ api_token_id }}"
+    api_token_secret: "{{ api_token_secret }}"
+    vmid: 201
+    state: started

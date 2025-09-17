@@ -1,0 +1,26 @@
+# Python requirements for Proxmox Host Setup
+# Install with: pip install -r requirements.txt
+
+# Ansible core
+ansible>=8.0.0
+
+# Proxmox API client
+proxmoxer>=2.0.0
+
+# HTTP requests library
+requests>=2.25.0
+
+# SSH connection library  
+paramiko>=2.7.0
+
+# Docker Python SDK (for ansible control machine)
+docker>=6.0.0
+
+# YAML handling
+PyYAML>=6.0
+
+# Cryptography for vault operations
+cryptography>=3.4.0
+
+# Jinja2 templating
+Jinja2>=3.0.0

@@ -1,0 +1,11 @@
+---
+
+- name: Reload nginx
+  ansible.builtin.systemd_service:
+    state: reloaded
+    name: nginx
+
+- name: Restart Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    state: restarted
