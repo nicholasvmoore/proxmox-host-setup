@@ -1,19 +1,28 @@
 ---
 
-- name: Start Jellyfin LXC Container
+- name: Stop LXC Container
   community.general.proxmox:
-    api_host: brix.pcola.moorenix.com
+    api_host: "{{ proxmox_api_host | default('brix.pcola.moorenix.com') }}"
     api_user: "{{ api_user }}"
     api_token_id: "{{ api_token_id }}"
     api_token_secret: "{{ api_token_secret }}"
-    vmid: 200
+    vmid: "{{ lxc_vmid }}"
+    state: stopped
+
+- name: Start LXC Container
+  community.general.proxmox:
+    api_host: "{{ proxmox_api_host | default('brix.pcola.moorenix.com') }}"
+    api_user: "{{ api_user }}"
+    api_token_id: "{{ api_token_id }}"
+    api_token_secret: "{{ api_token_secret }}"
+    vmid: "{{ lxc_vmid }}"
     state: started
 
-- name: Start Docker LXC Container
+- name: Restart LXC Container
   community.general.proxmox:
-    api_host: brix.pcola.moorenix.com
+    api_host: "{{ proxmox_api_host | default('brix.pcola.moorenix.com') }}"
     api_user: "{{ api_user }}"
     api_token_id: "{{ api_token_id }}"
     api_token_secret: "{{ api_token_secret }}"
-    vmid: 201
-    state: started
+    vmid: "{{ lxc_vmid }}"
+    state: restarted

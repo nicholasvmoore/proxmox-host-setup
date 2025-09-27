@@ -60,39 +60,55 @@
         - jellyfin_container_creation
         - jellyfin_container
 
-    - name: Add Jellyfin LXC Container custom configurations
-      ansible.builtin.blockinfile:
-        path: /etc/pve/lxc/200.conf
-        block: |
-          # Mounting the media directory from the host to the container.
-          mp0: /lun0/media,mp=/lun0/media
+    - name: Create Ansible LXC config directory
+      ansible.builtin.file:
+        path: /var/lib/ansible/lxc-configs
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container
 
-          # Allowing Jellyfin to access the /dev/dri/renderD128 device.
-          lxc.cgroup2.devices.allow: c 226:128 rwm
+    - name: Generate Jellyfin LXC Container configuration from template
+      ansible.builtin.template:
+        src: templates/jellyfin_lxc.conf.j2
+        dest: /var/lib/ansible/lxc-configs/200.conf.ansible
+        backup: yes
+        mode: '0644'
+        owner: root
+        group: root
+      register: jellyfin_config_template
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container
 
-          # Mounting the /dev/dri/renderD128 device from the host to the container.
-          lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+    - name: Stop Jellyfin LXC Container before configuration update
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 200
+        state: stopped
+      when: 
+        - ansible_check_mode == false
+        - jellyfin_config_template.changed
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container
 
-          # We are mapping the UID of Jellyfin inside the container to the UID of the user that owns /dev/dri/renderD128.
-          # Here we are adjusting the mapping of LXC containers stopping at 107 to remap the UID to a different UID on the host.
-          lxc.idmap: u 0 100000 107
-
-          # Here we are mapping UID 107 inside the container to UID 104 on the host.
-          lxc.idmap: u 107 1000 1
-
-          # Then we map UID 108 inside the container to UID 100108 on the host.
-          # There are a maximum of 65536 UIDs in Linux. Subtract 108 from 65536 to get 65428.
-          lxc.idmap: u 108 100108 65428
-
-          # Next we are mapping the GID of Jellyfin inside the container to the GID of the group that owns /dev/dri/renderD128.
-          lxc.idmap: g 0 100000 110
-
-          # Here we are mapping GID 990 inside the container to GID 104 on the host.
-          lxc.idmap: g 110 104 1
-
-          # Then we map GID 991 inside the container to GID 100991 on the host.
-          # There are a maximum of 65536 GIDs in Linux. Subtract 111 from 65536 to get 65425.
-          lxc.idmap: g 111 100111 65425
+    - name: Apply Jellyfin LXC Container configuration
+      ansible.builtin.copy:
+        src: /var/lib/ansible/lxc-configs/200.conf.ansible
+        dest: /etc/pve/lxc/200.conf
+        remote_src: yes
+        backup: yes
+        mode: '0644'
+        owner: root
+        group: root
+      when: jellyfin_config_template.changed
       notify:
         - Start Jellyfin LXC Container
       tags:

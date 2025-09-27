@@ -1,0 +1,43 @@
+# {{ ansible_managed }}
+# Jellyfin LXC Container Configuration (VMID: 200)
+# This file is managed by Ansible - do not edit manually
+
+# Basic container settings
+arch: amd64
+cores: 4
+hostname: jellyfin
+memory: 4096
+net0: name=eth0,bridge=vmbr0,firewall=1,hwaddr={{ jellyfin_mac_address | default('auto') }},ip=dhcp,type=veth
+onboot: 1
+ostype: ubuntu
+rootfs: ssd0:vm-200-disk-0,size=100G
+swap: 0
+unprivileged: 0
+
+# Mounting the media directory from the host to the container
+mp0: /lun0/media,mp=/lun0/media
+
+# Allowing Jellyfin to access the Intel GPU device
+lxc.cgroup2.devices.allow: c 226:128 rwm
+
+# Mounting the Intel GPU device from the host to the container
+lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+
+# User and group ID mappings for GPU access
+# Mapping UID 0-106 to host UID 100000-100106
+lxc.idmap: u 0 100000 107
+
+# Mapping UID 107 inside container to host UID 1000 (for GPU access)
+lxc.idmap: u 107 1000 1
+
+# Mapping remaining UIDs (108-65535) to host UIDs 100108-165535
+lxc.idmap: u 108 100108 65428
+
+# Mapping GID 0-109 to host GID 100000-100109
+lxc.idmap: g 0 100000 110
+
+# Mapping GID 110 inside container to host GID 104 (for GPU access)
+lxc.idmap: g 110 104 1
+
+# Mapping remaining GIDs (111-65535) to host GIDs 100111-165535
+lxc.idmap: g 111 100111 65425

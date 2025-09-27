@@ -1,0 +1,13 @@
+# Ignore CLAUDE.md files as they are auto-generated and may not follow strict markdown rules
+CLAUDE.md
+**/CLAUDE.md
+
+# Ignore other auto-generated files
+AGENTS.md
+**/AGENTS.md
+
+# Ignore node_modules and other common directories
+node_modules/
+.git/
+venv/
+source/

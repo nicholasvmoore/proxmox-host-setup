@@ -6,6 +6,8 @@
       ansible.builtin.apt:
         upgrade: yes
         update_cache: true
+      async: 1800
+      poll: 30
       notify:
         - Restart server
 
@@ -23,4 +25,6 @@
           - snapd
         state: present
         update_cache: true
+      async: 1800
+      poll: 30
   when: ansible_facts['os_family'] == 'Debian'

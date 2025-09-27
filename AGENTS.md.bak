@@ -14,13 +14,10 @@ ansible-playbook -i inventory main.yml --vault-password-file=~/.ssh/ansible_key.
 # Run specific playbooks
 ansible-playbook -i inventory proxmox_host_setup.yml --vault-password-file=~/.ssh/ansible_key.key
 ansible-playbook -i inventory jellyfin.yml --vault-password-file=~/.ssh/ansible_key.key
-
-# Run individual tasks with tags
-ansible-playbook -i inventory main.yml --tags="jellyfin_container_creation"
 ```
 
 ## Code Style
-- Use proper Ansible indentation
+- Use YAML with 2-space indentation, no line length limits (yamllint configured)
 - Start all files with `---` YAML document separator
 - Use `ansible.builtin.` prefix for core modules, community collections for others
 - Variable files encrypted with Ansible Vault (vars/proxmox_vars.yml)
@@ -29,9 +26,3 @@ ansible-playbook -i inventory main.yml --tags="jellyfin_container_creation"
 - Use block/when constructs for conditional task groups
 - Handlers for service restarts and state changes
 - Comments for complex configurations (especially LXC mappings)
-
-## Cursor Rules
-None detected.
-
-## Copilot Rules
-None detected.

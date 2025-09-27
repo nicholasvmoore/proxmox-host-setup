@@ -7,10 +7,19 @@
   tags:
     - docker_container
     - docker_container_creation
-  
+
   handlers:
     - import_tasks: handlers/main.yml
-        
+
+    - name: Start Docker LXC Container
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 201
+        state: started
+
   tasks:
     - name: Create Docker LXC Container
       community.general.proxmox:
@@ -21,7 +30,7 @@
         vmid: 201
         node: brix
         hostname: docker
-        ostemplate: 'local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst'
+        ostemplate: 'local:vztmpl/debian-13-standard_13.1-1_amd64.tar.zst'
         ostype: ubuntu
         disk_volume:
           storage: ssd1
@@ -34,46 +43,84 @@
         onboot: true
         password: "{{ root_password }}"
         pubkey: "{{ root_pub_key }}"
+        unprivileged: false
       tags:
         - docker_container_creation
 
-    - name: Add Docker LXC Container custom configurations
-      ansible.builtin.blockinfile:
+    - name: Start Docker LXC Container after creation
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 201
+        node: brix
+        state: started
+      tags:
+        - docker_container_creation
+
+    - name: Wait for Docker container to be online after creation
+      ansible.builtin.wait_for_connection:
+        connect_timeout: 60
+        sleep: 5
+        delay: 10
+        timeout: 300
+      delegate_to: docker.pcola.moorenix.com
+      tags:
+        - docker_container_creation
+
+    - name: Stop Docker LXC Container before configuration update
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 201
+        node: brix
+        state: stopped
+      when: ansible_check_mode == false
+      tags:
+        - docker_container_configuration
+
+    - name: Configure Docker LXC container mount points
+      ansible.builtin.shell: |
+        # Add models directory mount point
+        pct set 201 -mp0 /lun0/models,mp=/lun0/models
+      tags:
+        - docker_container_configuration
+
+    - name: Configure Docker LXC container for Intel GPU device access
+      ansible.builtin.shell: |
+        # Allow Intel GPU device access in cgroups
+        pct set 201 -features nesting=1
+      tags:
+        - docker_container_configuration
+
+    - name: Add Intel GPU low-level LXC configuration
+      ansible.builtin.lineinfile:
         path: /etc/pve/lxc/201.conf
-        block: |
-          # Allowing Docker to access the Intel GPU devices
-          lxc.cgroup2.devices.allow: c 226:0 rwm
-          lxc.cgroup2.devices.allow: c 226:128 rwm
+        line: "{{ item }}"
+        state: present
+      loop:
+        - "lxc.apparmor.profile: unconfined"
+        - "lxc.cgroup2.devices.allow: a"
+        - "lxc.cap.drop: "
+        - "lxc.cgroup2.devices.allow: c 226:0 rwm"
+        - "lxc.cgroup2.devices.allow: c 226:128 rwm"
+        - "lxc.mount.entry: /dev/dri/card0 dev/dri/card0 none bind,optional,create=file"
+        - "lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file"
+      tags:
+        - docker_container_configuration
 
-          # Mounting the Intel GPU devices from the host to the container
-          lxc.mount.entry: /dev/dri/card0 dev/dri/card0 none bind,optional,create=file
-          lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
-
-          # Enable nesting for Docker
-          lxc.apparmor.profile: unconfined
-          lxc.cgroup2.devices.allow: a
-          lxc.cap.drop: 
-          
-          # We need to map user and group IDs for GPU access
-          # Here we are adjusting the mapping of LXC containers stopping at 107 to remap the UID to a different UID on the host.
-          lxc.idmap: u 0 100000 107
-
-          # Here we are mapping UID 107 inside the container to UID 104 on the host.
-          lxc.idmap: u 107 1000 1
-
-          # Then we map UID 108 inside the container to UID 100108 on the host.
-          lxc.idmap: u 108 100108 65428
-
-          # Next we are mapping the GID
-          lxc.idmap: g 0 100000 110
-
-          # Here we are mapping GID 990 inside the container to GID 104 on the host.
-          lxc.idmap: g 110 104 1
-
-          # Then we map GID 991 inside the container to GID 100991 on the host.
-          lxc.idmap: g 111 100111 65425
-      notify:
-        - Start Docker LXC Container
+    - name: Start Docker LXC Container after configuration
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ api_token_secret }}"
+        vmid: 201
+        node: brix
+        state: started
       tags:
         - docker_container_configuration
 
@@ -94,7 +141,7 @@
   tags:
     - docker_container
     - docker_container_configuration
-    
+
   handlers:
     - import_tasks: handlers/main.yml
 
@@ -104,11 +151,29 @@
       tags:
         - docker_server_tooling
 
+    - name: Enable Debian non-free repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/debian-nonfree.list
+        content: 'deb http://deb.debian.org/debian {{ ansible_facts["distribution_release"] }} main contrib non-free non-free-firmware'
+        mode: '0644'
+        owner: root
+        group: root
+      when: ansible_facts['os_family'] == 'Debian'
+      tags:
+        - docker_software
+
+    - name: Update apt cache after enabling non-free
+      ansible.builtin.apt:
+        update_cache: yes
+      when: ansible_facts['os_family'] == 'Debian'
+      tags:
+        - docker_software
+
     - name: Install Docker
       block:
         - name: Add Docker GPG key
           ansible.builtin.get_url:
-            url: https://download.docker.com/linux/ubuntu/gpg
+            url: https://download.docker.com/linux/debian/gpg
             dest: /etc/apt/trusted.gpg.d/docker.asc
             mode: 0644
             owner: root
@@ -116,7 +181,7 @@
 
         - name: Add Docker Repository
           ansible.builtin.apt_repository:
-            repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
+            repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/docker.asc] https://download.docker.com/linux/debian {{ ansible_facts['distribution_release'] }} stable"
             state: present
 
         - name: Install Docker packages
@@ -129,7 +194,6 @@
               - docker-compose-plugin
               - intel-media-va-driver-non-free
               - intel-gpu-tools
-              - intel-opencl-icd
             state: present
             update_cache: true
 
@@ -172,7 +236,7 @@
             owner: root
             group: root
           notify:
-            - Restart Docker
+            - restart docker service
 
         - name: Add Intel GPU device permissions to system
           ansible.builtin.file:
@@ -183,7 +247,7 @@
             - "/dev/dri/renderD128"
             - "/dev/dri/card0"
           notify:
-            - Restart Docker
+            - restart docker service
 
         - name: Ensure video group exists
           ansible.builtin.group:
@@ -218,19 +282,11 @@
           - python3-pip
           - python3-setuptools
           - python3-wheel
+          - python3-docker
+          - python3-requests
         state: present
         update_cache: true
       when: ansible_facts['os_family'] == 'Debian'
-      tags:
-        - docker_images
-        - docker_container_configuration
-
-    - name: Install Python Docker SDK
-      ansible.builtin.pip:
-        name:
-          - docker
-          - requests
-        state: present
       tags:
         - docker_images
         - docker_container_configuration

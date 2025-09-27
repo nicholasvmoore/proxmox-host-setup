@@ -1,0 +1,21 @@
+---
+# Markdown linting configuration
+# Following similar approach to yamllint with sensible defaults
+
+# Disable problematic rules for technical documentation
+line-length: false
+no-inline-html: false
+no-duplicate-heading: false
+
+# Enable important rules
+no-trailing-spaces: true
+no-multiple-blanks: true
+no-hard-tabs: true
+
+# Allow emphasis patterns common in technical docs
+emphasis-style:
+  style: asterisk
+
+# Allow ordered lists to start with any number
+ol-prefix:
+  style: ordered
