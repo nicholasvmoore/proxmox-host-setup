@@ -228,7 +228,7 @@ This project has undergone significant restructuring to improve modularity, elim
 #### 1. Centralized Handler Management
 - **New Structure**: Created `handlers/` directory with modular handler files
   - `handlers/main.yml` - Main import file for all handlers
-  - `handlers/proxmox.yml` - Proxmox LXC container start/stop handlers
+  - `handlers/lxc_containers.yml` - LXC container start/stop handlers
   - `handlers/services.yml` - Service control handlers (nginx, docker)
   - `handlers/system.yml` - System-level handlers (reboot)
 - **Benefits**: Eliminated duplicate handlers across playbooks, centralized maintenance
@@ -323,7 +323,7 @@ ansible-playbook -i inventory docker.yml --tags docker_images
 ### Supporting Files
 - `handlers/` - Centralized handler definitions
   - `main.yml` - Imports all handler files
-  - `proxmox.yml` - Proxmox container handlers
+  - `lxc_containers.yml` - LXC container handlers
   - `services.yml` - Service control handlers
   - `system.yml` - System-level handlers
 - `tasks/` - Reusable task definitions

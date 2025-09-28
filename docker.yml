@@ -4,21 +4,16 @@
   hosts: proxmox_hosts
   vars_files:
     - vars/proxmox_vars.yml
-  tags:
-    - docker_container
-    - docker_container_creation
+
+  vars:
+    lxc_vmid: 201
 
   handlers:
     - import_tasks: handlers/main.yml
 
-    - name: Start Docker LXC Container
-      community.general.proxmox:
-        api_host: brix.pcola.moorenix.com
-        api_user: "{{ api_user }}"
-        api_token_id: "{{ api_token_id }}"
-        api_token_secret: "{{ api_token_secret }}"
-        vmid: 201
-        state: started
+  tags:
+    - docker_container
+    - docker_container_creation
 
   tasks:
     - name: Create Docker LXC Container
@@ -48,14 +43,10 @@
         - docker_container_creation
 
     - name: Start Docker LXC Container after creation
-      community.general.proxmox:
-        api_host: brix.pcola.moorenix.com
-        api_user: "{{ api_user }}"
-        api_token_id: "{{ api_token_id }}"
-        api_token_secret: "{{ api_token_secret }}"
-        vmid: 201
-        node: brix
-        state: started
+      ansible.builtin.debug:
+        msg: "Container created, starting via handler"
+      notify:
+        - Start LXC Container
       tags:
         - docker_container_creation
 
@@ -70,15 +61,11 @@
         - docker_container_creation
 
     - name: Stop Docker LXC Container before configuration update
-      community.general.proxmox:
-        api_host: brix.pcola.moorenix.com
-        api_user: "{{ api_user }}"
-        api_token_id: "{{ api_token_id }}"
-        api_token_secret: "{{ api_token_secret }}"
-        vmid: 201
-        node: brix
-        state: stopped
+      ansible.builtin.debug:
+        msg: "Container configuration update, stopping via handler"
       when: ansible_check_mode == false
+      notify:
+        - Stop LXC Container
       tags:
         - docker_container_configuration
 
@@ -113,14 +100,10 @@
         - docker_container_configuration
 
     - name: Start Docker LXC Container after configuration
-      community.general.proxmox:
-        api_host: brix.pcola.moorenix.com
-        api_user: "{{ api_user }}"
-        api_token_id: "{{ api_token_id }}"
-        api_token_secret: "{{ api_token_secret }}"
-        vmid: 201
-        node: brix
-        state: started
+      ansible.builtin.debug:
+        msg: "Container configuration complete, starting via handler"
+      notify:
+        - Start LXC Container
       tags:
         - docker_container_configuration
 

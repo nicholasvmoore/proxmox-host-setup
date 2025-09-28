@@ -6,6 +6,11 @@
   vars_files:
     - vars/proxmox_vars.yml
 
+  vars:
+    container_templates:
+      - ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+      - debian-12-standard_12.7-1_amd64.tar.zst
+      - debian-13-standard_13.1-1_amd64.tar.zst
   handlers:
     - import_tasks: handlers/main.yml
 
@@ -20,7 +25,7 @@
       tags:
         - proxmox_host_setup
 
-    - name: Download Ubuntu 24.04 LTS Template
+    - name: Download Container Templates
       community.general.proxmox_template:
         api_host: brix.pcola.moorenix.com
         api_user: "{{ api_user }}"
@@ -28,7 +33,8 @@
         api_token_secret: "{{ api_token_secret }}"
         node: brix
         storage: local
-        template: ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+        template: "{{ item }}"
+      loop: "{{ container_templates }}"
       tags:
         - container_templates
         - proxmox_host_setup
