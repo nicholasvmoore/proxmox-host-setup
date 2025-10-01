@@ -1,5 +1,110 @@
 ---
 
+- name: Create Jellyfin LXC Container
+  hosts: brix
+  vars_files:
+    - vars/proxmox_vars.yml
+
+  handlers:
+    - import_tasks: handlers/main.yml
+
+  tasks:
+    - name: Create Jellyfin LXC Container
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ brix_api_token_secret }}"
+        vmid: 200
+        node: brix
+        hostname: jellyfin
+        ostemplate: 'local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst' # This is commented out and used only for the initial creation of the container.
+        ostype: ubuntu
+        disk_volume:
+          storage: ssd0
+          size: 100
+        cores: 4
+        memory: 4096
+        swap: 0
+        netif:
+          net0: "name=eth0,ip=dhcp,bridge=vmbr0"
+        onboot: true
+        password: "{{ root_password }}"
+        pubkey: "{{ root_pub_key }}"
+        # update: true # Comment this when used for initial creation of the container.
+      tags:
+        - jellyfin_container_creation
+        - jellyfin_container
+
+    - name: Create Ansible LXC config directory
+      ansible.builtin.file:
+        path: /var/lib/ansible/lxc-configs
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container
+
+    - name: Generate Jellyfin LXC Container configuration from template
+      ansible.builtin.template:
+        src: templates/jellyfin_lxc.conf.j2
+        dest: /var/lib/ansible/lxc-configs/200.conf.ansible
+        backup: yes
+        mode: '0644'
+        owner: root
+        group: root
+      register: jellyfin_config_template
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container
+
+    - name: Stop Jellyfin LXC Container before configuration update
+      community.general.proxmox:
+        api_host: brix.pcola.moorenix.com
+        api_user: "{{ api_user }}"
+        api_token_id: "{{ api_token_id }}"
+        api_token_secret: "{{ brix_api_token_secret }}"
+        vmid: 200
+        state: stopped
+      when:
+        - ansible_check_mode == false
+        - jellyfin_config_template.changed
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container
+
+    - name: Apply Jellyfin LXC Container configuration
+      ansible.builtin.copy:
+        src: /var/lib/ansible/lxc-configs/200.conf.ansible
+        dest: /etc/pve/lxc/200.conf
+        remote_src: yes
+        backup: yes
+        mode: '0644'
+        owner: root
+        group: root
+      when: jellyfin_config_template.changed
+      notify:
+        - Start Jellyfin LXC Container
+      tags:
+        - jellyfin_container_configuration
+        - jellyfin_container
+
+- name: Wait for Jellyfin container to be online
+  hosts: jellyfin
+  gather_facts: false
+  tags:
+    - jellyfin_container
+    - jellyfin_container_configuration
+  tasks:
+    - name: Wait for container to be online
+      ansible.builtin.wait_for_connection:
+        connect_timeout: 60
+        sleep: 5
+        delay: 10
+        timeout: 300
+
 - name: Install Jellyfin
   hosts: jellyfin
   vars_files:
