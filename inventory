@@ -1,5 +1,8 @@
-[proxmox_hosts]
+[brix]
 brix.pcola.moorenix.com ansible_user=root api_user=root@pam ansible_python_interpreter=/opt/ansible/bin/python
+
+[prox0]
+prox0.pcola.moorenix.com ansible_user=root api_user=root@pam ansible_python_interpreter=/opt/ansible/bin/python
 
 [jellyfin]
 jellyfin.pcola.moorenix.com ansible_user=root

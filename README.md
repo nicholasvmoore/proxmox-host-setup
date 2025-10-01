@@ -142,7 +142,7 @@ ansible-playbook -i inventory docker.yml --limit docker \
   --vault-password-file=~/.ssh/ansible_key.key
 
 # Only run against proxmox hosts
-ansible-playbook -i inventory proxmox_host_setup.yml --limit proxmox_hosts \
+ansible-playbook -i inventory proxmox_host_setup.yml --limit brix \
   --vault-password-file=~/.ssh/ansible_key.key
 ```
 

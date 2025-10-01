@@ -97,8 +97,14 @@ ansible-playbook -i inventory main.yml --syntax-check
   - `intelanalytics/ipex-llm-inference-cpp-xpu:latest`
 
 ### Infrastructure Details
-- Target hosts: `proxmox_hosts` (for host setup), `jellyfin` (for Jellyfin container), `docker` (for Docker container)
-- Proxmox API host: brix.pcola.moorenix.com
+- Target hosts: `brix` (for brix.pcola.moorenix.com setup), `jellyfin` (for Jellyfin container), `docker` (for Docker container) `prox0_host` (for prox0.pcola.moorenix.com setup)
+- Proxmox API hosts:
+  - brix.pcola.moorenix.com
+    - api_token_id: automation
+    - api_token_secret: brix_api_token_secret
+  - prox0.pcola.moorenix.com
+    - api_token_id: automation
+    - api_token_secret: prox0_api_token_secret
 - LXC containers:
   - Jellyfin: hostname `jellyfin`, VMID 200
   - Docker: hostname `docker`, VMID 201

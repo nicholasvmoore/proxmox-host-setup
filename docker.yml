@@ -1,7 +1,7 @@
 ---
 
 - name: Create Docker LXC Container
-  hosts: proxmox_hosts
+  hosts: brix
   vars_files:
     - vars/proxmox_vars.yml
 
@@ -21,7 +21,7 @@
         api_host: brix.pcola.moorenix.com
         api_user: "{{ api_user }}"
         api_token_id: "{{ api_token_id }}"
-        api_token_secret: "{{ api_token_secret }}"
+        api_token_secret: "{{ brix_api_token_secret }}"
         vmid: 201
         node: brix
         hostname: docker
