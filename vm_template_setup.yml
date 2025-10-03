@@ -1,0 +1,69 @@
+---
+- name: Download qcow2 images for VM template creation
+  hosts: proxmox_hosts
+  gather_facts: false
+  tags:
+    - vm_templates
+
+  vars:
+    qcow2_storage_path: "/var/lib/vz/template/qemu"
+    qcow2_images:
+      - url: "https://cloud.debian.org/images/cloud/bookworm/20250923-2244/debian-12-generic-amd64-20250923-2244.qcow2"
+        name: "debian-12-generic-amd64-20250923-2244.qcow2"
+        vm_name: "debian-12"
+        vmid: 1000
+      - url: "https://cloud.debian.org/images/cloud/trixie/20250924-2245/debian-13-genericcloud-amd64-20250924-2245.qcow2"
+        name: "debian-13-genericcloud-amd64-20250924-2245.qcow2"
+        vm_name: "debian-13"
+        vmid: 1001
+
+  tasks:
+    - name: Ensure qemu template directory exists
+      ansible.builtin.file:
+        path: "{{ qcow2_storage_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download qcow2 cloud images
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ qcow2_storage_path }}/{{ item.name }}"
+        mode: '0644'
+        timeout: 300
+      loop: "{{ qcow2_images }}"
+
+    - name: Verify qcow2 images were downloaded
+      ansible.builtin.stat:
+        path: "{{ qcow2_storage_path }}/{{ item.name }}"
+      register: qcow2_stats
+      loop: "{{ qcow2_images }}"
+
+    - name: Display download results
+      ansible.builtin.debug:
+        msg: "{{ item.item.name }} successfully downloaded ({{ item.stat.size }} bytes)"
+      loop: "{{ qcow2_stats.results }}"
+      when: item.stat.exists
+
+    - name: Create VM for template
+      ansible.builtin.command:
+        cmd: >
+          qm create {{ item.vmid }}
+          --name {{ item.vm_name }}
+          --cpu host
+          --sockets 1
+          --cores 2
+          --memory 4096
+      loop: "{{ qcow2_images }}"
+      register: vm_create_result
+      failed_when:
+        - vm_create_result.rc != 0
+        - "'already exists' not in vm_create_result.stderr"
+
+    - name: Convert VM to template
+      ansible.builtin.command:
+        cmd: qm template {{ item.vmid }}
+      loop: "{{ qcow2_images }}"
+      register: vm_template_result
+      failed_when:
+        - vm_template_result.rc != 0
+        - "'already a template' not in vm_template_result.stderr"

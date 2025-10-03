@@ -11,11 +11,6 @@
       - ubuntu-24.04-standard_24.04-2_amd64.tar.zst
       - debian-12-standard_12.12-1_amd64.tar.zst
       - debian-13-standard_13.1-1_amd64.tar.zst
-    iso_images:
-      - url: "https://mirrors.edge.kernel.org/ubuntu-releases/24.04.3/ubuntu-24.04.3-live-server-amd64.iso"
-        filename: "ubuntu-24.04.3-live-server-amd64.iso"
-      - url: "https://mirrors.edge.kernel.org/debian-cd/13.1.0/amd64/iso-cd/debian-13.1.0-amd64-netinst.iso"
-        filename: "debian-13.1.0-amd64-netinst.iso"
   handlers:
     - import_tasks: handlers/main.yml
 
@@ -43,22 +38,5 @@
       loop: "{{ container_templates }}"
       tags:
         - container_templates
-        - proxmox_host_setup
-
-    - name: Download ISO Images
-      community.general.proxmox_template:
-        api_host: "{{ ansible_host | default(inventory_hostname) }}"
-        api_user: "{{ api_user }}"
-        api_token_id: "{{ api_token_id }}"
-        api_token_secret: "{{ vars[inventory_hostname.split('.')[0] + '_api_token_secret'] }}"
-        node: "{{ inventory_hostname.split('.')[0] }}"
-        storage: "{{ 'local-btrfs' if inventory_hostname.split('.')[0] == 'prox0' else 'local' }}"
-        content_type: iso
-        template: "{{ item.filename }}"
-        url: "{{ item.url }}"
-        timeout: 600
-      loop: "{{ iso_images }}"
-      tags:
-        - iso_images
         - proxmox_host_setup
 
