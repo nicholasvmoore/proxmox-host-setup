@@ -10,7 +10,7 @@
 
   tasks:
     - name: Create Jellyfin LXC Container
-      community.general.proxmox:
+      community.proxmox.proxmox:
         api_host: brix.pcola.moorenix.com
         api_user: "{{ api_user }}"
         api_token_id: "{{ api_token_id }}"
@@ -61,7 +61,7 @@
         - jellyfin_container
 
     - name: Stop Jellyfin LXC Container before configuration update
-      community.general.proxmox:
+      community.proxmox.proxmox:
         api_host: brix.pcola.moorenix.com
         api_user: "{{ api_user }}"
         api_token_id: "{{ api_token_id }}"

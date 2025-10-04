@@ -1,7 +1,7 @@
 ---
 
 - name: Stop LXC Container
-  community.general.proxmox:
+  community.proxmox.proxmox:
     api_host: "{{ proxmox_api_host | default('brix.pcola.moorenix.com') }}"
     api_user: "{{ api_user }}"
     api_token_id: "{{ api_token_id }}"
@@ -10,7 +10,7 @@
     state: stopped
 
 - name: Start LXC Container
-  community.general.proxmox:
+  community.proxmox.proxmox:
     api_host: "{{ proxmox_api_host | default('brix.pcola.moorenix.com') }}"
     api_user: "{{ api_user }}"
     api_token_id: "{{ api_token_id }}"
@@ -19,7 +19,7 @@
     state: started
 
 - name: Restart LXC Container
-  community.general.proxmox:
+  community.proxmox.proxmox:
     api_host: "{{ proxmox_api_host | default('brix.pcola.moorenix.com') }}"
     api_user: "{{ api_user }}"
     api_token_id: "{{ api_token_id }}"

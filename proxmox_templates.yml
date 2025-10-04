@@ -1,0 +1,44 @@
+---
+
+- name: Download Proxmox Container Templates
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/proxmox_vars.yml
+
+  vars:
+    container_templates:
+      - ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+      - debian-12-standard_12.12-1_amd64.tar.zst
+      - debian-13-standard_13.1-1_amd64.tar.zst
+    proxmox_hosts:
+      - hostname: brix.pcola.moorenix.com
+        node: brix
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'BRIX_API_TOKEN_SECRET') | default(brix_api_token_secret, true) }}"
+        storage: local
+      - hostname: prox0.pcola.moorenix.com
+        node: prox0
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        storage: local-btrfs
+
+  tasks:
+    - name: Download Container Templates
+      community.proxmox.proxmox_template:
+        api_host: "{{ item.0.hostname }}"
+        api_user: "{{ item.0.api_user }}"
+        api_token_id: "{{ item.0.api_token_id }}"
+        api_token_secret: "{{ item.0.api_token_secret }}"
+        node: "{{ item.0.node }}"
+        storage: "{{ item.0.storage }}"
+        template: "{{ item.1 }}"
+        timeout: 600
+      loop: "{{ proxmox_hosts | product(container_templates) | list }}"
+      tags:
+        - container_templates
+        - proxmox_templates

@@ -3,6 +3,9 @@
 - name: Proxmox Host Setup
   ansible.builtin.import_playbook: proxmox_host_setup.yml
 
+- name: Download Proxmox Container Templates
+  ansible.builtin.import_playbook: proxmox_templates.yml
+
 - name: VM Template Setup
   ansible.builtin.import_playbook: vm_template_setup.yml
 
