@@ -76,7 +76,7 @@
       ansible.builtin.command:
         cmd: >
           qm set {{ item.vmid }}
-          --scsi0 {{ 'local-btrfs' if inventory_hostname.split('.')[0] == 'prox0' else 'local-lvm' }}:vm-{{ item.vmid }}-disk-0
+          --scsi0 {{ 'local-btrfs:' + item.vmid|string + '/vm-' + item.vmid|string + '-disk-0.raw' if inventory_hostname.split('.')[0] == 'prox0' else 'local-lvm:vm-' + item.vmid|string + '-disk-0' }}
           --boot order=scsi0
       loop: "{{ qcow2_images }}"
 
