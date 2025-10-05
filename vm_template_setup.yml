@@ -53,11 +53,39 @@
           --sockets 1
           --cores 2
           --memory 4096
+          --scsihw virtio-scsi-pci
       loop: "{{ qcow2_images }}"
       register: vm_create_result
       failed_when:
         - vm_create_result.rc != 0
         - "'already exists' not in vm_create_result.stderr"
+
+    - name: Import qcow2 disk to VM
+      ansible.builtin.command:
+        cmd: >
+          qm importdisk {{ item.vmid }}
+          {{ qcow2_storage_path }}/{{ item.name }}
+          {{ 'local-btrfs' if inventory_hostname.split('.')[0] == 'prox0' else 'local-lvm' }}
+      loop: "{{ qcow2_images }}"
+      register: disk_import_result
+      failed_when:
+        - disk_import_result.rc != 0
+        - "'already exists' not in disk_import_result.stderr"
+
+    - name: Attach imported disk as scsi0 and set boot order
+      ansible.builtin.command:
+        cmd: >
+          qm set {{ item.vmid }}
+          --scsi0 {{ 'local-btrfs' if inventory_hostname.split('.')[0] == 'prox0' else 'local-lvm' }}:vm-{{ item.vmid }}-disk-0
+          --boot order=scsi0
+      loop: "{{ qcow2_images }}"
+
+    - name: Add cloud-init drive
+      ansible.builtin.command:
+        cmd: >
+          qm set {{ item.vmid }}
+          --ide2 {{ 'local-btrfs' if inventory_hostname.split('.')[0] == 'prox0' else 'local-lvm' }}:cloudinit
+      loop: "{{ qcow2_images }}"
 
     - name: Convert VM to template
       ansible.builtin.command:
