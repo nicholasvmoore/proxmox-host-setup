@@ -47,6 +47,18 @@
           ipconfig0: "ip=dhcp"
         state: present
 
+    - name: Configure disk with SSD and trim support
+      community.proxmox.proxmox_disk:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        vmid: "{{ vm_config.vmid }}"
+        disk: scsi0
+        ssd: true
+        discard: on
+        state: present
+
     - name: Resize VM disk
       community.proxmox.proxmox_disk:
         api_host: "{{ vm_config.proxmox_host }}"
