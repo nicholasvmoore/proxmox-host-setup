@@ -1,0 +1,61 @@
+---
+
+- name: Create VM from template
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - vm_creation
+
+  vars_files:
+    - vars/proxmox_vars.yml
+
+  vars:
+    vm_config:
+      template_name: debian-12
+      vmid: 200
+      name: gha-runner0
+      cores: 4
+      memory: 28672  # 28GB in MB
+      disk_size: 20G
+      proxmox_host: prox0.pcola.moorenix.com
+      node: prox0
+      storage: local-btrfs
+      ciuser: nicholas
+      sshkeys: "{{ lookup('env', 'VM_SSH_KEY') | default(root_pub_key, true) }}"
+
+  tasks:
+    - name: Clone and configure VM from template
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        node: "{{ vm_config.node }}"
+        clone: "{{ vm_config.template_name }}"
+        newid: "{{ vm_config.vmid }}"
+        name: "{{ vm_config.name }}"
+        full: true
+        cores: "{{ vm_config.cores }}"
+        memory: "{{ vm_config.memory }}"
+        ciuser: "{{ vm_config.ciuser }}"
+        ciupgrade: true
+        sshkeys: "{{ vm_config.sshkeys }}"
+        ipconfig:
+          ipconfig0: "ip=dhcp"
+        state: present
+
+    - name: Resize VM disk
+      community.proxmox.proxmox_disk:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        vmid: "{{ vm_config.vmid }}"
+        disk: scsi0
+        size: "{{ vm_config.disk_size }}"
+        state: resized
+
+    - name: Display VM configuration
+      ansible.builtin.debug:
+        msg: "VM {{ vm_config.name }} (ID: {{ vm_config.vmid }}) created with {{ vm_config.cores }} cores, {{ vm_config.memory }}MB RAM, {{ vm_config.disk_size }} disk, and cloud-init user {{ vm_config.ciuser }}"

@@ -149,6 +149,10 @@ ansible-playbook -i inventory main.yml --syntax-check
 - The vault password file must be located at `~/.ssh/proxmox-key.key`
 - Use `./setup.sh && source activate.sh` for automated environment setup
 - Certificate generation includes hardcoded email (nicholasvmoore@gmail.com)
+- **IMPORTANT**: `vars/proxmox_vars.yml` must ALWAYS be encrypted with ansible-vault before committing to git
+  - To decrypt for editing: `PYENV_VERSION=ansible ansible-vault decrypt vars/proxmox_vars.yml --vault-password-file=~/.ssh/proxmox-key.key`
+  - To re-encrypt after editing: `PYENV_VERSION=ansible ansible-vault encrypt vars/proxmox_vars.yml --vault-password-file=~/.ssh/proxmox-key.key`
+  - Never commit the file in decrypted state
 
 ### Container Management
 - Container creation tasks have specific comments about initial vs. update operations
