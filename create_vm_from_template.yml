@@ -38,6 +38,8 @@
         full: true
         cores: "{{ vm_config.cores }}"
         memory: "{{ vm_config.memory }}"
+        net:
+          net0: 'virtio,bridge=vmbr0'
         ciuser: "{{ vm_config.ciuser }}"
         ciupgrade: true
         sshkeys: "{{ vm_config.sshkeys }}"

@@ -1,0 +1,34 @@
+---
+- name: Delete VM templates
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/proxmox_vars.yml
+
+  vars:
+    template_configs:
+      - hostname: brix.pcola.moorenix.com
+        node: brix
+        api_token_secret: "{{ lookup('env', 'BRIX_API_TOKEN_SECRET') | default(brix_api_token_secret, true) }}"
+        vmids: [1000, 1001]
+      - hostname: prox0.pcola.moorenix.com
+        node: prox0
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        vmids: [1000, 1001]
+
+  tasks:
+    - name: Delete VM templates
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ item.0.hostname }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ item.0.api_token_secret }}"
+        node: "{{ item.0.node }}"
+        vmid: "{{ item.1 }}"
+        state: absent
+      loop: "{{ template_configs | subelements('vmids') }}"
+      loop_control:
+        label: "{{ item.0.hostname }} - VM {{ item.1 }}"
+      ignore_errors: true
