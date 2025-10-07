@@ -56,8 +56,9 @@
         sshkeys: "{{ vm_config.sshkeys }}"
         ipconfig:
           ipconfig0: "ip=dhcp"
-        onboot: false
+        onboot: true
         update: true
+        autostart: true
 
     - name: Configure disk with SSD and trim support
       community.proxmox.proxmox_disk:
@@ -85,3 +86,54 @@
     - name: Display VM configuration
       ansible.builtin.debug:
         msg: "VM {{ vm_config.name }} (ID: {{ vm_config.vmid }}) created with {{ vm_config.cores }} cores, {{ vm_config.memory }}MB RAM, {{ vm_config.disk_size }} disk, and cloud-init user {{ vm_config.ciuser }}"
+
+    - name: Start VM
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        node: "{{ vm_config.node }}"
+        vmid: "{{ vm_config.vmid }}"
+        state: started
+
+- name: Wait for cloud-init
+  hosts: prox0.pcola.moorenix.com
+  gather_facts: false
+
+  vars:
+    vmid: 200
+
+  tasks:
+    - name: Wait for cloud-init to complete first boot
+      ansible.builtin.shell: |
+        /usr/sbin/qm guest exec {{ vmid }} -- /bin/bash -c 'ls /var/lib/cloud/instance/boot-finished 2>/dev/null | wc -l | tr -d \n' | jq -r '."out-data"' | tr -d '\n '
+      become: true
+      register: boot_check
+      until: boot_check.stdout == "1"
+      retries: 60
+      delay: 10
+      changed_when: false
+
+- name: Restart VM to complete bootstrapping
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars/proxmox_vars.yml
+
+  vars:
+    vmid: 200
+    proxmox_host: prox0.pcola.moorenix.com
+    node: prox0
+
+  tasks:
+    - name: Restart VM
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        node: "{{ node }}"
+        vmid: "{{ vmid }}"
+        state: restarted

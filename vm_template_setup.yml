@@ -40,6 +40,12 @@
       loop: "{{ qcow2_stats.results }}"
       when: item.stat.exists
 
+    - name: Install qemu-guest-agent in qcow2 images using virt-customize
+      ansible.builtin.command:
+        cmd: virt-customize -a {{ qcow2_storage_path }}/{{ item.name }} --install qemu-guest-agent
+      loop: "{{ qcow2_images }}"
+      changed_when: true
+
 - name: Create VM templates
   hosts: localhost
   connection: local

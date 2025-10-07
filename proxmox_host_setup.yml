@@ -16,6 +16,7 @@
           - libguestfs-tools
           - btop
           - tcpdump
+          - jq
         state: present
       tags:
         - proxmox_host_setup
