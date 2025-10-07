@@ -8,14 +8,10 @@
   vars:
     qcow2_storage_path: "/var/lib/vz/template/qemu"
     qcow2_images:
-      - url: "https://cloud.debian.org/images/cloud/bookworm/20250923-2244/debian-12-generic-amd64-20250923-2244.qcow2"
-        name: "debian-12-generic-amd64-20250923-2244.qcow2"
-        vm_name: "debian-12"
+      - url: "https://cloud-images.ubuntu.com/noble/20251001/noble-server-cloudimg-amd64.img"
+        name: "noble-server-cloudimg-amd64.img"
+        vm_name: "ubuntu-noble"
         vmid: 1000
-      - url: "https://cloud.debian.org/images/cloud/trixie/20250924-2245/debian-13-genericcloud-amd64-20250924-2245.qcow2"
-        name: "debian-13-genericcloud-amd64-20250924-2245.qcow2"
-        vm_name: "debian-13"
-        vmid: 1001
 
   tasks:
     - name: Ensure qemu template directory exists
@@ -63,22 +59,16 @@
         storage: local-lvm
         templates:
           - vmid: 1000
-            name: debian-12
-            qcow2_file: "debian-12-generic-amd64-20250923-2244.qcow2"
-          - vmid: 1001
-            name: debian-13
-            qcow2_file: "debian-13-genericcloud-amd64-20250924-2245.qcow2"
+            name: ubuntu-noble
+            qcow2_file: "noble-server-cloudimg-amd64.img"
       - hostname: prox0.pcola.moorenix.com
         node: prox0
         api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
         storage: local-btrfs
         templates:
           - vmid: 1000
-            name: debian-12
-            qcow2_file: "debian-12-generic-amd64-20250923-2244.qcow2"
-          - vmid: 1001
-            name: debian-13
-            qcow2_file: "debian-13-genericcloud-amd64-20250924-2245.qcow2"
+            name: ubuntu-noble
+            qcow2_file: "noble-server-cloudimg-amd64.img"
 
   tasks:
     - name: Create VM for template

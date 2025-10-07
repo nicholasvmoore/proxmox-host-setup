@@ -12,7 +12,7 @@
 
   vars:
     vm_config:
-      template_name: debian-12
+      template_name: ubuntu-noble
       vmid: 200
       name: gha-runner0
       cores: 4
@@ -25,7 +25,7 @@
       sshkeys: "{{ lookup('env', 'VM_SSH_KEY') | default(root_pub_key, true) }}"
 
   tasks:
-    - name: Clone and configure VM from template
+    - name: Clone VM from template
       community.proxmox.proxmox_kvm:
         api_host: "{{ vm_config.proxmox_host }}"
         api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
@@ -36,16 +36,28 @@
         newid: "{{ vm_config.vmid }}"
         name: "{{ vm_config.name }}"
         full: true
+        state: present
+
+    - name: Configure VM resources
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        node: "{{ vm_config.node }}"
+        vmid: "{{ vm_config.vmid }}"
         cores: "{{ vm_config.cores }}"
         memory: "{{ vm_config.memory }}"
-        net:
-          net0: 'virtio,bridge=vmbr0'
+        agent: "enabled=1"
+        citype: nocloud
         ciuser: "{{ vm_config.ciuser }}"
+        cipassword: "{{ lookup('env', 'PROXMOX_ROOT_PASSWORD') | default(root_password, true) }}"
         ciupgrade: true
         sshkeys: "{{ vm_config.sshkeys }}"
         ipconfig:
           ipconfig0: "ip=dhcp"
-        state: present
+        onboot: false
+        update: true
 
     - name: Configure disk with SSD and trim support
       community.proxmox.proxmox_disk:

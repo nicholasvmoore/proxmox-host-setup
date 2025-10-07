@@ -12,11 +12,11 @@
       - hostname: brix.pcola.moorenix.com
         node: brix
         api_token_secret: "{{ lookup('env', 'BRIX_API_TOKEN_SECRET') | default(brix_api_token_secret, true) }}"
-        vmids: [1000, 1001]
+        vmids: [1000]
       - hostname: prox0.pcola.moorenix.com
         node: prox0
         api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
-        vmids: [1000, 1001]
+        vmids: [1000]
 
   tasks:
     - name: Delete VM templates
