@@ -208,4 +208,10 @@
             state: started
             enabled: true
 
+        - name: Add nicholas user to docker group
+          ansible.builtin.user:
+            name: nicholas
+            groups: docker
+            append: true
+
       when: ansible_facts['os_family'] == 'Debian'
