@@ -4,3 +4,7 @@
   ansible.builtin.reboot:
     msg: "Server Upgraded, needs to be restarted"
     connect_timeout: 5
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd_service:
+    daemon_reload: true

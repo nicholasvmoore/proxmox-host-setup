@@ -141,77 +141,22 @@
 - name: Wait for GitHub Actions Runner server to be online
   hosts: gha-runner0
   gather_facts: false
-  tags:
-    - gha_runner_software
 
   tasks:
     - name: Wait for server to be online
       ansible.builtin.wait_for_connection:
 
-- name: Install Docker on GitHub Actions Runner
+- name: Install k3s on GitHub Actions Runner
   hosts: gha-runner0
   become: true
   tags:
     - gha_runner_software
-    - docker_install
-
-  handlers:
-    - import_tasks: handlers/main.yml
 
   tasks:
-    - name: Install Docker
-      block:
-        - name: Install prerequisites
-          ansible.builtin.apt:
-            name:
-              - ca-certificates
-              - curl
-              - gnupg
-            state: present
-            update_cache: true
-
-        - name: Create directory for apt keyrings
-          ansible.builtin.file:
-            path: /etc/apt/keyrings
-            state: directory
-            mode: 0755
-            owner: root
-            group: root
-
-        - name: Add Docker GPG key
-          ansible.builtin.get_url:
-            url: https://download.docker.com/linux/ubuntu/gpg
-            dest: /etc/apt/keyrings/docker.asc
-            mode: 0644
-            owner: root
-            group: root
-
-        - name: Add Docker Repository
-          ansible.builtin.apt_repository:
-            repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
-            state: present
-
-        - name: Install Docker packages
-          ansible.builtin.apt:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-              - docker-buildx-plugin
-              - docker-compose-plugin
-            state: present
-            update_cache: true
-
-        - name: Enable Docker service
-          ansible.builtin.systemd_service:
-            name: docker
-            state: started
-            enabled: true
-
-        - name: Add nicholas user to docker group
-          ansible.builtin.user:
-            name: nicholas
-            groups: docker
-            append: true
-
-      when: ansible_facts['os_family'] == 'Debian'
+    - name: Install Dependencies
+      ansible.builtin.apt:
+        name:
+          - wireguard
+          - net-tools
+        state: present
+        update_cache: true
