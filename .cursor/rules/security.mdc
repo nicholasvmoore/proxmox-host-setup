@@ -1,0 +1,150 @@
+---
+description: Security best practices and compliance requirements
+---
+
+# Security Best Practices
+
+## Ansible Vault Security
+
+### Critical Requirements
+- **MUST**: All sensitive variables MUST be encrypted with Ansible Vault
+- **NEVER**: Commit decrypted vault files to version control
+- **ALWAYS**: Use vault password file for automation
+- **VERIFY**: Check vault status before every commit
+
+### Vault File Management
+```bash
+# Check if file is encrypted
+ansible-vault view vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+
+# Verify encryption status
+file vars/proxmox_vars.yml  # Should show "data" not "ASCII text"
+```
+
+### Sensitive Data Categories
+- **API Tokens**: Proxmox API tokens and secrets
+- **Passwords**: Root passwords, service passwords
+- **SSH Keys**: Private keys, passphrases
+- **Certificates**: SSL certificates, private keys
+- **Database Credentials**: Connection strings, passwords
+- **Third-party API Keys**: External service credentials
+
+## Network Security
+
+### Firewall Configuration
+- Use proper firewall rules for container networking
+- Restrict access to management interfaces
+- Use VPN or SSH tunneling for remote access
+- Implement proper network segmentation
+
+### SSL/TLS Security
+- Use Let's Encrypt for SSL certificates
+- Implement proper certificate renewal
+- Use strong cipher suites
+- Enable HSTS headers where appropriate
+
+### Container Security
+- Use unprivileged containers where possible
+- Implement proper AppArmor profiles
+- Use cgroup restrictions for resource limits
+- Regular security updates
+
+## Access Control
+
+### SSH Key Management
+- Use SSH key-based authentication
+- Implement proper key rotation
+- Use strong key algorithms (RSA 4096+, Ed25519)
+- Store private keys securely
+
+### User Management
+- Use principle of least privilege
+- Implement proper user groups
+- Use sudo for privilege escalation
+- Regular access reviews
+
+### API Security
+- Use API tokens instead of passwords
+- Implement proper token rotation
+- Use HTTPS for all API communications
+- Monitor API access logs
+
+## Data Protection
+
+### Backup Security
+- Encrypt backup data
+- Use secure backup locations
+- Implement backup verification
+- Test restore procedures
+
+### Log Management
+- Implement proper log rotation
+- Use secure log storage
+- Monitor for security events
+- Implement log analysis
+
+### Configuration Security
+- Use secure configuration templates
+- Validate configuration inputs
+- Implement configuration drift detection
+- Use configuration management tools
+
+## Compliance Requirements
+
+### Data Handling
+- Follow data retention policies
+- Implement proper data classification
+- Use secure data transmission
+- Implement data loss prevention
+
+### Audit Requirements
+- Maintain audit logs
+- Implement change tracking
+- Use version control for all changes
+- Document security procedures
+
+### Incident Response
+- Implement incident response procedures
+- Maintain security contact information
+- Use proper escalation procedures
+- Document security incidents
+
+## Security Monitoring
+
+### System Monitoring
+- Monitor system resource usage
+- Track security events
+- Implement intrusion detection
+- Use security scanning tools
+
+### Container Monitoring
+- Monitor container resource usage
+- Track container security events
+- Implement container scanning
+- Use runtime security tools
+
+### Network Monitoring
+- Monitor network traffic
+- Track network security events
+- Implement network intrusion detection
+- Use network scanning tools
+
+## Security Updates
+
+### Regular Updates
+- Implement regular security updates
+- Use automated update systems
+- Test updates in staging environment
+- Maintain update documentation
+
+### Vulnerability Management
+- Implement vulnerability scanning
+- Track security advisories
+- Implement patch management
+- Use security assessment tools
+
+### Security Testing
+- Implement regular security testing
+- Use penetration testing
+- Implement security code review
+- Use automated security testing

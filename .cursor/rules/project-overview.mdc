@@ -1,0 +1,51 @@
+---
+alwaysApply: true
+description: Project overview and structure for Proxmox Host Setup Ansible project
+---
+
+# Proxmox Host Setup Project Overview
+
+This is an Ansible project for automating Proxmox VE host setup and LXC container provisioning, specifically focused on creating and configuring media servers and Docker containers with hardware acceleration support.
+
+## Project Structure
+
+### Main Playbooks
+- [main.yml](mdc:main.yml) - Entry point orchestrating all infrastructure setup
+- [proxmox_host_setup.yml](mdc:proxmox_host_setup.yml) - Proxmox host configuration and Jellyfin container creation
+- [docker.yml](mdc:docker.yml) - Complete Docker container lifecycle management
+- [jellyfin.yml](mdc:jellyfin.yml) - Jellyfin installation and configuration
+- [proxmox_templates.yml](mdc:proxmox_templates.yml) - Container template downloads
+- [vm_template_setup.yml](mdc:vm_template_setup.yml) - VM template configuration
+- [gha-runner.yml](mdc:gha-runner.yml) - GitHub Actions runner setup
+
+### Configuration Files
+- [inventory](mdc:inventory) - Defines all managed hosts and groups
+- [ansible.cfg](mdc:ansible.cfg) - Ansible configuration settings
+- [vars/proxmox_vars.yml](mdc:vars/proxmox_vars.yml) - Encrypted variables (API tokens, passwords, etc.)
+- [vars/brix_vars.yml](mdc:vars/brix_vars.yml) - Host-specific variables
+
+### Supporting Directories
+- [handlers/](mdc:handlers/) - Centralized handler definitions
+- [tasks/](mdc:tasks/) - Reusable task definitions
+- [templates/](mdc:templates/) - Jinja2 templates for configuration files
+
+## Infrastructure Components
+
+### LXC Containers Created
+- **Jellyfin Media Server (VMID: 200)**: 4 vCPU, 4GB RAM, 100GB disk, Intel GPU acceleration
+- **Docker Host (VMID: 201)**: 8 vCPU, 16GB RAM, 100GB disk, Intel GPU, Docker nesting enabled
+
+### Target Hosts
+- `brix` - Primary Proxmox host (brix.pcola.moorenix.com)
+- `prox0` - Secondary Proxmox host (prox0.pcola.moorenix.com)
+- `jellyfin` - Jellyfin LXC container (jellyfin.pcola.moorenix.com)
+- `docker` - Docker LXC container (docker.pcola.moorenix.com)
+- `gha-runner0` - GitHub Actions runner (gha-runner0.pcola.moorenix.com)
+
+## Key Features
+- Intel GPU hardware acceleration for media transcoding
+- SSL/TLS certificates via Let's Encrypt
+- Nginx reverse proxy configuration
+- Docker-in-LXC with proper security nesting
+- Automated certificate renewal
+- Disk spin-down configuration for storage optimization

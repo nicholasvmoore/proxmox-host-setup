@@ -1,0 +1,133 @@
+---
+description: Common issues and troubleshooting guide
+---
+
+# Troubleshooting Guide
+
+## Common Issues
+
+### Docker Image Pull Failures
+If you encounter errors when pulling Docker images:
+
+1. **Missing Python Docker SDK**: The playbook automatically installs required dependencies on target hosts
+2. **Network connectivity**: Ensure the Docker container has internet access
+3. **Docker service not running**: Check if Docker service is active with `systemctl status docker`
+
+### Collection Not Found Errors
+```bash
+# Reinstall Ansible collections
+ansible-galaxy collection install -r requirements.yml --force
+```
+
+### Vault Decryption Errors
+```bash
+# Verify vault password file exists and has correct permissions
+ls -la ~/.ssh/ansible_key.key
+chmod 600 ~/.ssh/ansible_key.key
+```
+
+### Environment Issues
+```bash
+# Activate pyenv virtual environment
+pyenv activate ansible
+
+# Reinstall dependencies if needed
+pip install -r requirements.txt --force-reinstall
+ansible-galaxy collection install -r requirements.yml --force
+```
+
+## Known Issues
+
+### SystemD Timer Typo
+- **Issue**: SystemD timer has a typo: `cerbot-renew.timer` should be `certbot-renew.timer`
+- **Location**: [templates/certbot-renew.timer.j2](mdc:templates/certbot-renew.timer.j2)
+- **Impact**: Certificate renewal timer may not work properly
+
+### Hardcoded Email Address
+- **Issue**: Certificate generation includes hardcoded email (nicholasvmoore@gmail.com)
+- **Location**: Various playbooks and templates
+- **Impact**: SSL certificates will use this email for notifications
+
+## Debugging Commands
+
+### Ansible Debugging
+```bash
+# Verbose output
+ansible-playbook -i inventory docker.yml -vvv --vault-password-file=~/.ssh/ansible_key.key
+
+# Check mode with verbose output
+ansible-playbook -i inventory docker.yml --check -vvv --vault-password-file=~/.ssh/ansible_key.key
+
+# Test connectivity
+ansible all -i inventory -m ping --vault-password-file=~/.ssh/ansible_key.key
+```
+
+### Container Debugging
+```bash
+# Check container status
+pct list
+
+# View container logs
+pct exec 200 -- journalctl -u jellyfin
+
+# Check hardware acceleration
+pct exec 200 -- ls -la /dev/dri/
+```
+
+### Service Debugging
+```bash
+# Check service status
+systemctl status nginx
+systemctl status docker
+
+# View service logs
+journalctl -u nginx -f
+journalctl -u docker -f
+```
+
+## Performance Optimization
+
+### Faster Testing
+- Use `--limit` to target specific hosts
+- Use granular tags for specific operations
+- Use `--check` mode for dry runs
+- Skip unnecessary tasks with `--skip-tags`
+
+### Resource Monitoring
+- Monitor container resource usage with `htop` or `btop`
+- Check disk space with `df -h`
+- Monitor network with `tcpdump` or `netstat`
+
+## Recovery Procedures
+
+### Container Recovery
+```bash
+# Stop problematic container
+pct stop 200
+
+# Start container
+pct start 200
+
+# Destroy and recreate (last resort)
+pct destroy 200
+# Re-run playbook to recreate
+```
+
+### Service Recovery
+```bash
+# Restart services
+systemctl restart nginx
+systemctl restart docker
+
+# Reload configuration
+systemctl reload nginx
+```
+
+### Certificate Recovery
+```bash
+# Renew certificates manually
+certbot renew --nginx
+
+# Check certificate status
+certbot certificates
+```

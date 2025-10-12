@@ -1,10 +1,10 @@
 #!/bin/bash
 # Proxmox Host Setup - Environment Setup Script
-# This script sets up all dependencies for the Proxmox Host Setup project
+# This script sets up all dependencies for the Proxmox Host Setup project using pyenv
 
 set -e  # Exit on any error
 
-echo "🚀 Setting up Proxmox Host Setup environment..."
+echo "🚀 Setting up Proxmox Host Setup environment with pyenv..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -30,42 +30,47 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if Python 3 is installed
-check_python() {
-    if ! command -v python3 &> /dev/null; then
-        print_error "Python 3 is not installed. Please install Python 3.8+ and try again."
+# Check if pyenv is installed
+check_pyenv() {
+    if ! command -v pyenv &> /dev/null; then
+        print_error "pyenv is not installed. Please install pyenv and try again."
+        print_error "Visit: https://github.com/pyenv/pyenv#installation"
         exit 1
     fi
     
-    python_version=$(python3 --version | cut -d' ' -f2)
-    print_status "Found Python $python_version"
+    pyenv_version=$(pyenv --version | cut -d' ' -f2)
+    print_status "Found pyenv $pyenv_version"
 }
 
-# Check if pip is installed
-check_pip() {
-    if ! command -v pip3 &> /dev/null; then
-        print_warning "pip3 not found. Installing pip..."
-        python3 -m ensurepip --upgrade || {
-            print_error "Failed to install pip. Please install pip manually."
-            exit 1
-        }
+# Check if Python 3.12 is available
+check_python() {
+    if ! pyenv versions | grep -q "3.12"; then
+        print_warning "Python 3.12 not found in pyenv. Installing..."
+        pyenv install 3.12.0
     fi
-    print_status "Found pip3"
+    
+    print_status "Python 3.12 is available"
+}
+
+# Create ansible virtual environment
+create_ansible_env() {
+    print_status "Creating ansible virtual environment..."
+    
+    # Create virtual environment if it doesn't exist
+    if ! pyenv versions | grep -q "ansible"; then
+        pyenv virtualenv 3.12.0 ansible
+        print_success "Created ansible virtual environment"
+    else
+        print_status "ansible virtual environment already exists"
+    fi
 }
 
 # Install Python dependencies
 install_python_deps() {
     print_status "Installing Python dependencies..."
     
-    # Create virtual environment if it doesn't exist
-    if [ ! -d "venv" ]; then
-        print_status "Creating virtual environment..."
-        python3 -m venv venv
-    fi
-    
-    # Activate virtual environment
-    print_status "Activating virtual environment..."
-    source venv/bin/activate
+    # Activate ansible environment
+    pyenv activate ansible
     
     # Upgrade pip
     pip install --upgrade pip
@@ -81,8 +86,8 @@ install_python_deps() {
 install_ansible_collections() {
     print_status "Installing Ansible collections..."
     
-    # Activate virtual environment
-    source venv/bin/activate
+    # Activate ansible environment
+    pyenv activate ansible
     
     ansible-galaxy collection install -r requirements.yml
     
@@ -93,8 +98,8 @@ install_ansible_collections() {
 verify_installation() {
     print_status "Verifying installation..."
     
-    # Activate virtual environment
-    source venv/bin/activate
+    # Activate ansible environment
+    pyenv activate ansible
     
     # Check Ansible version
     ansible_version=$(ansible --version | head -n1)
@@ -125,9 +130,9 @@ create_activation_script() {
     cat > activate.sh << 'EOF'
 #!/bin/bash
 # Activate the Proxmox Host Setup environment
-source venv/bin/activate
+pyenv activate ansible
 echo "🚀 Proxmox Host Setup environment activated"
-echo "Run 'deactivate' to exit the virtual environment"
+echo "Run 'pyenv deactivate' to exit the virtual environment"
 EOF
     
     chmod +x activate.sh
@@ -141,8 +146,9 @@ main() {
     echo "======================================"
     echo
     
+    check_pyenv
     check_python
-    check_pip
+    create_ansible_env
     install_python_deps
     install_ansible_collections
     verify_installation
@@ -154,10 +160,10 @@ main() {
     echo "========================================="
     echo
     echo "Next steps:"
-    echo "1. Activate the environment: source activate.sh"
+    echo "1. Activate the environment: pyenv activate ansible"
     echo "2. Configure your vault password file: ~/.ssh/ansible_key.key"
     echo "3. Update the inventory file with your Proxmox host"
-    echo "4. Run: ansible-playbook -i inventory main.yml --ask-vault-pass"
+    echo "4. Run: ansible-playbook -i inventory main.yml --vault-password-file=~/.ssh/ansible_key.key"
     echo
 }
 

@@ -1,0 +1,85 @@
+---
+description: Common commands and workflows for the Proxmox Host Setup project
+---
+
+# Proxmox Host Setup Commands
+
+## Environment Setup
+```bash
+# Activate pyenv virtual environment
+pyenv activate ansible
+
+# Install dependencies
+pip install -r requirements.txt
+ansible-galaxy collection install -r requirements.yml
+```
+
+## Main Playbook Execution
+```bash
+# Complete infrastructure setup
+ansible-playbook -i inventory main.yml --vault-password-file=~/.ssh/ansible_key.key
+
+# Individual playbooks
+ansible-playbook -i inventory proxmox_host_setup.yml --vault-password-file=~/.ssh/ansible_key.key
+ansible-playbook -i inventory jellyfin.yml --vault-password-file=~/.ssh/ansible_key.key
+ansible-playbook -i inventory docker.yml --vault-password-file=~/.ssh/ansible_key.key
+```
+
+## Targeted Execution
+```bash
+# Target specific hosts
+ansible-playbook -i inventory jellyfin.yml --limit jellyfin --vault-password-file=~/.ssh/ansible_key.key
+ansible-playbook -i inventory docker.yml --limit docker --vault-password-file=~/.ssh/ansible_key.key
+ansible-playbook -i inventory proxmox_host_setup.yml --limit brix --vault-password-file=~/.ssh/ansible_key.key
+
+# Target specific tasks with tags
+ansible-playbook -i inventory proxmox_host_setup.yml --tags container_creation --vault-password-file=~/.ssh/ansible_key.key
+ansible-playbook -i inventory proxmox_host_setup.yml --tags jellyfin_container --vault-password-file=~/.ssh/ansible_key.key
+ansible-playbook -i inventory docker.yml --tags docker_images --vault-password-file=~/.ssh/ansible_key.key
+```
+
+## Testing and Validation
+```bash
+# Dry run (check mode)
+ansible-playbook -i inventory docker.yml --check --vault-password-file=~/.ssh/ansible_key.key
+
+# Syntax check
+ansible-playbook -i inventory main.yml --syntax-check
+
+# List available tags
+ansible-playbook -i inventory main.yml --list-tags --vault-password-file=~/.ssh/ansible_key.key
+
+# Skip specific tasks
+ansible-playbook -i inventory main.yml --skip-tags container_creation --vault-password-file=~/.ssh/ansible_key.key
+```
+
+## Linting Commands
+```bash
+# YAML linting
+yamllint .
+
+# Ansible linting
+ansible-lint
+
+# Markdown linting
+markdownlint .
+```
+
+## Vault Management
+```bash
+# Decrypt vault file for editing
+ansible-vault decrypt vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+
+# Encrypt vault file after editing
+ansible-vault encrypt vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+
+# Edit vault file directly
+ansible-vault edit vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+```
+
+## Development Workflow
+1. Always use `--check` for dry runs first
+2. Use appropriate tags for targeted execution
+3. Ensure `vars/proxmox_vars.yml` is encrypted before committing
+4. Test with specific hosts using `--limit` flag
+5. Use handlers for service management with proper variable passing

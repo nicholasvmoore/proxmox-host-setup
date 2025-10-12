@@ -1,0 +1,68 @@
+---
+globs: vars/*.yml
+description: Variable management and vault security practices
+---
+
+# Variable Management
+
+## Vault Security
+
+### Critical Security Requirements
+- **MUST**: `vars/proxmox_vars.yml` must ALWAYS be encrypted with ansible-vault
+- **NEVER**: Commit decrypted vault files to version control
+- **ALWAYS**: Use vault password file for automation
+
+### Vault Commands
+```bash
+# Decrypt for editing
+ansible-vault decrypt vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+
+# Encrypt after editing
+ansible-vault encrypt vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+
+# Edit directly
+ansible-vault edit vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+
+# View without editing
+ansible-vault view vars/proxmox_vars.yml --vault-password-file=~/.ssh/ansible_key.key
+```
+
+## Variable Files
+
+### [vars/proxmox_vars.yml](mdc:vars/proxmox_vars.yml)
+- **Status**: Encrypted with Ansible Vault
+- **Contains**: API tokens, passwords, SSH keys, sensitive configuration
+- **Usage**: Included in all main playbooks via `vars_files`
+
+### [vars/brix_vars.yml](mdc:vars/brix_vars.yml)
+- **Status**: Plain text (non-sensitive variables)
+- **Contains**: Host-specific configuration for brix host
+- **Usage**: Included in brix-specific tasks
+
+## Variable Naming Conventions
+- Use descriptive names: `jellyfin_public_domain`, `root_password`
+- Use underscores for separation: `api_token_id`, `lxc_vmid`
+- Group related variables: `brix_api_token_secret`, `prox0_api_token_secret`
+- Use consistent prefixes for similar variables
+
+## Variable Scope
+- **Global**: Defined in vault files, available to all playbooks
+- **Play-level**: Defined in playbook `vars` section
+- **Task-level**: Defined in individual tasks
+- **Host-specific**: Defined in inventory or host_vars
+
+## Sensitive Data Handling
+- **API Tokens**: Store in encrypted vault
+- **Passwords**: Use vault for all passwords
+- **SSH Keys**: Store public keys in vault
+- **Certificates**: Handle via Let's Encrypt automation
+- **Database Credentials**: Use vault for any database passwords
+
+## Best Practices
+1. Always encrypt sensitive variables before committing
+2. Use descriptive variable names
+3. Group related variables logically
+4. Document variable purpose in comments
+5. Use consistent naming conventions
+6. Test variable references with `--check` mode
+7. Use `ansible.builtin.debug` to verify variable values during development

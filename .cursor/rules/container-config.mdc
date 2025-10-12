@@ -1,0 +1,63 @@
+---
+description: LXC container configuration and hardware acceleration setup
+---
+
+# LXC Container Configuration
+
+## Container Specifications
+
+### Jellyfin Media Server (VMID: 200)
+- **Resources**: 4 vCPU, 4GB RAM, 100GB disk (ssd0)
+- **Features**: Intel GPU hardware acceleration, media directory mount
+- **Network**: DHCP on vmbr0
+- **Template**: Ubuntu 24.04 LTS
+- **Hardware**: `/dev/dri/renderD128` for Intel GPU acceleration
+
+### Docker Host (VMID: 201)
+- **Resources**: 8 vCPU, 16GB RAM, 100GB disk (ssd1)
+- **Features**: Intel GPU acceleration, Docker nesting enabled
+- **Network**: DHCP on vmbr0
+- **Template**: Debian 13 LTS
+- **Hardware**: `/dev/dri/card0` and `/dev/dri/renderD128` for Intel GPU
+
+## Hardware Acceleration Setup
+
+### Intel GPU Configuration
+- Requires complex UID/GID mapping for hardware access
+- Device permissions must be properly configured
+- Both `/dev/dri/card0` and `/dev/dri/renderD128` devices needed
+- Proper AppArmor and cgroup settings for Docker-in-LXC
+
+### Device Mapping
+```yaml
+# Example LXC configuration for Intel GPU
+lxc.cgroup2.devices.allow: c 226:* rwm
+lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
+lxc.mount.entry: /dev/fb0 dev/fb0 none bind,optional,create=file
+```
+
+## Container Creation Patterns
+
+### Proxmox API Usage
+- Use `community.proxmox.proxmox` module for container creation
+- API authentication via tokens stored in encrypted vault
+- Proper error handling for container existence checks
+- Use handlers for container start/stop operations
+
+### Security Considerations
+- Unprivileged containers where possible
+- Proper SSH key configuration
+- Root password management via vault
+- Network isolation and firewall rules
+
+## Template Management
+- Default template: `ubuntu-24.04-standard_24.04-2_amd64.tar.zst`
+- Additional templates available from [Proxmox Images](http://download.proxmox.com/images/system/)
+- Template downloads handled by [proxmox_templates.yml](mdc:proxmox_templates.yml)
+
+## Container Lifecycle
+1. **Creation**: Use Proxmox API to create LXC container
+2. **Configuration**: Modify container config files for hardware access
+3. **Start**: Use handlers to start container and wait for online status
+4. **Provisioning**: Install software and configure services
+5. **Validation**: Verify hardware acceleration and service functionality

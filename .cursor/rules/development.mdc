@@ -1,0 +1,158 @@
+---
+description: Development workflow and testing strategies
+---
+
+# Development Workflow
+
+## Development Environment Setup
+
+### Prerequisites
+- Python 3.12 with pyenv
+- Git for version control
+- Access to Proxmox VE host for testing
+- SSH key-based authentication configured
+
+### Environment Initialization
+```bash
+# Activate pyenv virtual environment
+pyenv activate ansible
+
+# Install dependencies
+pip install -r requirements.txt
+ansible-galaxy collection install -r requirements.yml
+```
+
+## Testing Strategy
+
+### Dry Run Testing
+Always use `--check` mode before applying changes:
+```bash
+# Test complete playbook
+ansible-playbook -i inventory main.yml --check --vault-password-file=~/.ssh/ansible_key.key
+
+# Test specific playbook
+ansible-playbook -i inventory docker.yml --check --vault-password-file=~/.ssh/ansible_key.key
+
+# Test with verbose output
+ansible-playbook -i inventory docker.yml --check -vvv --vault-password-file=~/.ssh/ansible_key.key
+```
+
+### Targeted Testing
+Use `--limit` and `--tags` for focused testing:
+```bash
+# Test specific host only
+ansible-playbook -i inventory docker.yml --limit docker --vault-password-file=~/.ssh/ansible_key.key
+
+# Test specific tasks only
+ansible-playbook -i inventory docker.yml --tags docker_images --vault-password-file=~/.ssh/ansible_key.key
+
+# Skip specific tasks
+ansible-playbook -i inventory main.yml --skip-tags container_creation --vault-password-file=~/.ssh/ansible_key.key
+```
+
+### Syntax Validation
+```bash
+# Check YAML syntax
+yamllint .
+
+# Check Ansible syntax
+ansible-playbook -i inventory main.yml --syntax-check
+
+# Lint Ansible playbooks
+ansible-lint
+```
+
+## Development Patterns
+
+### Iterative Development
+1. **Make Changes**: Edit playbooks, templates, or variables
+2. **Dry Run**: Test with `--check` mode
+3. **Targeted Test**: Use `--limit` and `--tags` for specific components
+4. **Apply Changes**: Run without `--check` when confident
+5. **Validate**: Verify services and functionality
+
+### Container Development
+```bash
+# Test container creation only
+ansible-playbook -i inventory proxmox_host_setup.yml --tags jellyfin_container_creation --vault-password-file=~/.ssh/ansible_key.key
+
+# Test container configuration only
+ansible-playbook -i inventory proxmox_host_setup.yml --tags jellyfin_container_configuration --vault-password-file=~/.ssh/ansible_key.key
+
+# Test Docker software installation
+ansible-playbook -i inventory docker.yml --tags docker_software --vault-password-file=~/.ssh/ansible_key.key
+```
+
+### Service Development
+```bash
+# Test service configuration
+ansible-playbook -i inventory jellyfin.yml --limit jellyfin --vault-password-file=~/.ssh/ansible_key.key
+
+# Test Docker image management
+ansible-playbook -i inventory docker.yml --tags docker_images --limit docker --vault-password-file=~/.ssh/ansible_key.key
+```
+
+## Debugging Techniques
+
+### Verbose Output
+```bash
+# Different verbosity levels
+ansible-playbook -i inventory docker.yml -v    # Basic verbosity
+ansible-playbook -i inventory docker.yml -vv   # More verbosity
+ansible-playbook -i inventory docker.yml -vvv  # Maximum verbosity
+```
+
+### Variable Debugging
+```yaml
+# Add debug tasks to verify variables
+- name: Debug variable values
+  ansible.builtin.debug:
+    msg: "Service name: {{ service_name }}, Port: {{ service_port }}"
+```
+
+### Connectivity Testing
+```bash
+# Test host connectivity
+ansible all -i inventory -m ping --vault-password-file=~/.ssh/ansible_key.key
+
+# Test specific host
+ansible jellyfin -i inventory -m ping --vault-password-file=~/.ssh/ansible_key.key
+```
+
+## Code Quality
+
+### Linting
+```bash
+# YAML linting
+yamllint .
+
+# Ansible linting
+ansible-lint
+
+# Markdown linting
+markdownlint .
+```
+
+### Pre-commit Checks
+1. Ensure `vars/proxmox_vars.yml` is encrypted
+2. Run syntax checks
+3. Run linting tools
+4. Test with `--check` mode
+5. Verify all required variables are defined
+
+## Performance Optimization
+
+### Parallel Execution
+- Use `--forks` parameter to control parallel execution
+- Use `async` and `poll` for long-running tasks
+- Use `throttle` for resource-intensive operations
+
+### Caching
+- Use `fact_caching` for repeated fact gathering
+- Use `cache_plugins` for expensive operations
+- Use `gather_facts: false` when facts aren't needed
+
+### Resource Management
+- Use `--limit` to target specific hosts
+- Use granular tags to skip unnecessary tasks
+- Use `--check` mode for validation without execution

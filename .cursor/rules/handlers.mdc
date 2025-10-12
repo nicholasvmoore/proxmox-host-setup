@@ -1,0 +1,89 @@
+---
+description: Handler system and service management patterns
+---
+
+# Handler System
+
+## Handler Architecture
+The project uses a centralized handler system located in [handlers/](mdc:handlers/) directory:
+
+- [handlers/main.yml](mdc:handlers/main.yml) - Main import file for all handlers
+- [handlers/lxc_containers.yml](mdc:handlers/lxc_containers.yml) - LXC container start/stop handlers
+- [handlers/services.yml](mdc:handlers/services.yml) - Service control handlers (nginx, docker)
+- [handlers/system.yml](mdc:handlers/system.yml) - System-level handlers (reboot)
+
+## Handler Usage Patterns
+
+### Generic Handlers with Variables
+Handlers use variables for maximum flexibility and reusability:
+
+```yaml
+# Service restart handler
+- name: Restart service
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    state: restarted
+    enabled: true
+  when: service_name is defined
+
+# Usage in tasks
+- name: Configure nginx
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+  notify: "Restart service"
+  vars:
+    service_name: nginx
+```
+
+### LXC Container Handlers
+```yaml
+# Start LXC container
+- name: Start LXC Container
+  community.proxmox.proxmox:
+    api_host: "{{ api_host }}"
+    api_user: "{{ api_user }}"
+    api_token_id: "{{ api_token_id }}"
+    api_token_secret: "{{ api_token_secret }}"
+    vmid: "{{ lxc_vmid }}"
+    node: "{{ node }}"
+    state: started
+  when: lxc_vmid is defined
+
+# Usage
+- name: Start container after creation
+  ansible.builtin.debug:
+    msg: "Container created, starting via handler"
+  notify: Start LXC Container
+  vars:
+    lxc_vmid: 200
+    api_host: brix.pcola.moorenix.com
+```
+
+## Required Variables
+
+### Service Handlers
+- `service_name` - Name of the service to restart/start/stop
+
+### LXC Container Handlers
+- `lxc_vmid` - Virtual machine ID of the container
+- `api_host` - Proxmox API hostname
+- `api_user` - Proxmox API user
+- `api_token_id` - API token ID
+- `api_token_secret` - API token secret
+- `node` - Proxmox node name
+
+## Handler Benefits
+- **Centralized Management**: Single source of truth for all handlers
+- **Eliminates Duplication**: No repeated handler definitions across playbooks
+- **Consistent Behavior**: Standardized handler patterns
+- **Variable Flexibility**: Generic handlers work with different services/containers
+- **Maintainability**: Easy to update handler logic in one place
+
+## Best Practices
+1. Always set required variables when using handlers
+2. Use descriptive handler names
+3. Include proper error handling and conditions
+4. Use `when` clauses to prevent handler execution when variables are undefined
+5. Group related handlers in appropriate files
+6. Import handlers via [handlers/main.yml](mdc:handlers/main.yml) in playbooks

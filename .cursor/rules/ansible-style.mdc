@@ -1,0 +1,51 @@
+---
+globs: *.yml,*.yaml
+description: Ansible coding style and best practices
+---
+
+# Ansible Style Guide
+
+## YAML Formatting
+- Always start files with `---` YAML document separator
+- Use 2-space indentation consistently
+- Use proper YAML syntax with quotes for complex strings
+- Group related tasks with clear spacing
+
+## Module Usage
+- Use `ansible.builtin.` prefix for core modules
+- Use community collections for specialized modules (e.g., `community.proxmox.proxmox`)
+- Prefer specific modules over generic `command` or `shell` modules
+- Use `ansible.builtin.import_playbook` for playbook orchestration
+
+## Task Structure
+- Use descriptive task names with proper capitalization
+- Group related tasks with tags for selective execution
+- Use `block`/`when` constructs for conditional task groups
+- Add comments for complex configurations, especially LXC mappings
+
+## Variable Management
+- Store sensitive variables in encrypted vault files
+- Use descriptive variable names with clear scope
+- Reference variables with `{{ variable_name }}` syntax
+- Use `vars_files` to include variable files
+
+## Handler Usage
+- Use handlers for service restarts and state changes
+- Handlers in [handlers/](mdc:handlers/) directory use variables for flexibility
+- Use `notify` with appropriate variables: `notify: "Restart service"` with `vars: { service_name: "nginx" }`
+- Set required variables like `service_name` or `lxc_vmid` when using handlers
+
+## Security Practices
+- **CRITICAL**: `vars/proxmox_vars.yml` must ALWAYS be encrypted with ansible-vault
+- Use Ansible Vault for all sensitive variables (passwords, API keys, tokens)
+- Never commit decrypted vault files
+- Use proper file permissions and ownership
+
+## Tag Organization
+Use consistent tagging for selective execution:
+- `proxmox_host_setup` - Host configuration tasks
+- `container_templates` - Template download tasks
+- `jellyfin_container` - All Jellyfin container tasks
+- `docker_container` - Complete Docker setup
+- `docker_software` - Docker CE installation only
+- `docker_images` - Docker image management

@@ -43,45 +43,27 @@ This project creates and configures the following infrastructure:
 
 #### System Requirements
 
-- Python 3.8 or higher
+- Python 3.12 with pyenv
 - Git
 - Access to a Proxmox VE host
 
-#### Quick Setup (Recommended)
+#### Environment Setup
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd proxmox-host-setup
 
-# Run the automated setup script
+# Run the automated setup script (recommended)
 ./setup.sh
 
-# Activate the environment
-source activate.sh
+# Or manually activate pyenv virtual environment
+pyenv activate ansible
+pip install -r requirements.txt
+ansible-galaxy collection install -r requirements.yml
 ```
 
-#### Manual Setup
-
-If you prefer to set up the environment manually:
-
-1. **Install Python dependencies**:
-
-   ```bash
-   # Create virtual environment
-   python3 -m venv venv
-   source venv/bin/activate
-   # Install Python packages
-   pip install -r requirements.txt
-   ```
-
-2. **Install Ansible collections**:
-
-   ```bash
-   ansible-galaxy collection install -r requirements.yml
-   ```
-
-3. **Create the ansible vault key** to decrypt encrypted variables:
+2. **Create the ansible vault key** to decrypt encrypted variables:
 
    ```bash
    # Place your vault password in a secure file
@@ -89,7 +71,7 @@ If you prefer to set up the environment manually:
    chmod 600 ~/.ssh/ansible_key.key
    ```
 
-4. **Configure your inventory**: Update the `inventory` file with your
+3. **Configure your inventory**: Update the `inventory` file with your
    Proxmox host details.
 
 ### Running Playbooks
@@ -97,6 +79,9 @@ If you prefer to set up the environment manually:
 #### Complete Infrastructure Setup
 
 ```bash
+# Activate pyenv virtual environment
+pyenv activate ansible
+
 # Run all setup tasks (host setup + container creation)
 ansible-playbook -i inventory main.yml \
   --vault-password-file=~/.ssh/ansible_key.key
@@ -107,6 +92,9 @@ ansible-playbook -i inventory main.yml \
 **Proxmox Host Setup (creates LXC containers)**:
 
 ```bash
+# Activate pyenv virtual environment
+pyenv activate ansible
+
 ansible-playbook -i inventory proxmox_host_setup.yml \
   --vault-password-file=~/.ssh/ansible_key.key
 ```
@@ -114,6 +102,9 @@ ansible-playbook -i inventory proxmox_host_setup.yml \
 **Jellyfin Configuration**:
 
 ```bash
+# Activate pyenv virtual environment
+pyenv activate ansible
+
 ansible-playbook -i inventory jellyfin.yml \
   --vault-password-file=~/.ssh/ansible_key.key
 ```
@@ -121,6 +112,9 @@ ansible-playbook -i inventory jellyfin.yml \
 **Docker Configuration**:
 
 ```bash
+# Activate pyenv virtual environment
+pyenv activate ansible
+
 ansible-playbook -i inventory docker.yml \
   --vault-password-file=~/.ssh/ansible_key.key
 ```

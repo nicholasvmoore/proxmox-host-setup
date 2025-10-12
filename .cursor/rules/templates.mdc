@@ -1,0 +1,117 @@
+---
+globs: templates/*.j2
+description: Jinja2 template patterns and configuration file management
+---
+
+# Jinja2 Templates
+
+## Template Directory Structure
+Templates are located in [templates/](mdc:templates/) directory:
+
+- [templates/certbot_requirements.j2](mdc:templates/certbot_requirements.j2) - Certbot Python requirements
+- [templates/certbot-renew.service.j2](mdc:templates/certbot-renew.service.j2) - SystemD service for certificate renewal
+- [templates/certbot-renew.timer.j2](mdc:templates/certbot-renew.timer.j2) - SystemD timer for certificate renewal
+- [templates/disk-spindown.service.j2](mdc:templates/disk-spindown.service.j2) - Disk spin-down service
+- [templates/docker_lxc.conf.j2](mdc:templates/docker_lxc.conf.j2) - Docker LXC container configuration
+- [templates/jellyfin_lxc.conf.j2](mdc:templates/jellyfin_lxc.conf.j2) - Jellyfin LXC container configuration
+- [templates/nginx_vhost.j2](mdc:templates/nginx_vhost.j2) - Nginx virtual host configuration
+- [templates/options-ssl-nginx.j2](mdc:templates/options-ssl-nginx.j2) - Nginx SSL options
+
+## Template Usage Patterns
+
+### SystemD Service Templates
+```jinja2
+[Unit]
+Description={{ service_description }}
+After=network.target
+
+[Service]
+Type=simple
+User={{ service_user }}
+ExecStart={{ service_command }}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### LXC Configuration Templates
+```jinja2
+# LXC configuration for {{ container_name }}
+lxc.cgroup2.devices.allow: c 226:* rwm
+lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
+lxc.mount.entry: /dev/fb0 dev/fb0 none bind,optional,create=file
+lxc.apparmor.profile: unconfined
+lxc.cgroup2.devices.allow: c 10:200 rwm
+lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+```
+
+### Nginx Configuration Templates
+```jinja2
+server {
+    listen 80;
+    server_name {{ domain_name }};
+    
+    location / {
+        proxy_pass http://localhost:{{ service_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## Template Variables
+
+### Common Variables
+- `{{ service_name }}` - Name of the service
+- `{{ service_user }}` - User to run the service
+- `{{ service_command }}` - Command to execute
+- `{{ domain_name }}` - Domain name for web services
+- `{{ service_port }}` - Port number for services
+- `{{ container_name }}` - Name of the LXC container
+
+### LXC-Specific Variables
+- `{{ lxc_vmid }}` - Virtual machine ID
+- `{{ storage_path }}` - Storage path for containers
+- `{{ network_bridge }}` - Network bridge name
+
+## Template Best Practices
+
+### Security
+- Use proper file permissions in templates
+- Escape user input to prevent injection
+- Use secure defaults for configurations
+- Validate template variables before use
+
+### Maintainability
+- Use descriptive variable names
+- Include comments in complex templates
+- Group related configurations together
+- Use consistent indentation and formatting
+
+### Error Handling
+- Use `default()` filter for optional variables
+- Use `mandatory()` filter for required variables
+- Include validation in templates where possible
+- Use conditional blocks for optional features
+
+## Template Deployment
+```yaml
+- name: Deploy configuration template
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0644') }}"
+    backup: true
+  notify: "Restart service"
+  vars:
+    service_name: "{{ item.service }}"
+  loop:
+    - { src: "nginx_vhost.j2", dest: "/etc/nginx/sites-available/{{ domain_name }}", service: "nginx" }
+    - { src: "certbot-renew.service.j2", dest: "/etc/systemd/system/certbot-renew.service", service: "certbot-renew" }
+```
