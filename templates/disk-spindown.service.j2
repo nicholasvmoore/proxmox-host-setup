@@ -5,7 +5,8 @@ After=multi-user.target
 [Service]
 Type=oneshot
 {% for disk in disk_spindown_paths %}
-ExecStart=/usr/bin/openSeaChest_PowerControl -d {{ disk.path }}{% if disk.idle_a is not none %} --idle_a {{ disk.idle_a }}{% endif %} --idle_b {{ disk.idle_b }} --idle_c {{ disk.idle_c }} --standby_z {{ disk.standby_z }}
+ExecStart=-/usr/bin/openSeaChest_PowerControl -d {{ disk.path }}{% if disk.idle_a is not none %} --idle_a {{ disk.idle_a }}{% endif %} --idle_b {{ disk.idle_b }} --idle_c {{ disk.idle_c }} --standby_z {{ disk.standby_z }}
+ExecStart=-/usr/bin/openSeaChest_PowerControl -d {{ disk.path }} --EPCfeature disable
 {% endfor %}
 
 [Install]

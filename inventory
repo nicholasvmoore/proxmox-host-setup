@@ -14,5 +14,7 @@ jellyfin.pcola.moorenix.com ansible_user=root
 [docker]
 docker.pcola.moorenix.com ansible_user=root
 
-[gha-runner0]
-gha-runner0.pcola.moorenix.com ansible_user=nicholas
+[k3s_nodes]
+k3s-node-01.pcola.moorenix.com ansible_user=nicholas
+k3s-node-02.pcola.moorenix.com ansible_user=nicholas
+k3s-node-03.pcola.moorenix.com ansible_user=nicholas

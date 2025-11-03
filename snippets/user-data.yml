@@ -1,0 +1,43 @@
+#cloud-config
+users:
+  - name: nicholas
+    groups: wheel
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+# Enable SSH
+ssh_pwauth: false
+disable_root: false
+
+# Package management
+package_update: true
+package_upgrade: true
+
+# Timezone
+timezone: UTC
+
+# Write files
+write_files:
+  - path: /etc/cloud/cloud.cfg.d/99-alpine.cfg
+    content: |
+      datasource_list: [ NoCloud ]
+      datasource:
+        NoCloud:
+          user-data: /var/lib/cloud/seed/nocloud/user-data
+          meta-data: /var/lib/cloud/seed/nocloud/meta-data
+    permissions: '0644'
+    owner: root:root
+
+# Run commands
+runcmd:
+  - apk update
+  - apk upgrade
+  - apk add --no-cache bash curl wget openssh sudo
+  - echo "Cloud-init completed" > /var/lib/cloud/instance/boot-finished
+  - systemctl enable sshd
+  - systemctl start sshd
+
+# Final message
+final_message: "Alpine Linux k3s node is ready"

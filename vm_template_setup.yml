@@ -12,6 +12,10 @@
         name: "noble-server-cloudimg-amd64.img"
         vm_name: "ubuntu-noble"
         vmid: 1000
+      - url: "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/cloud/generic_alpine-3.22.2-x86_64-uefi-cloudinit-metal-r0.qcow2"
+        name: "alpine-3.22.2-x86_64-uefi-cloudinit-metal.qcow2"
+        vm_name: "alpine-3.22"
+        vmid: 1001
 
   tasks:
     - name: Ensure qemu template directory exists
@@ -67,6 +71,9 @@
           - vmid: 1000
             name: ubuntu-noble
             qcow2_file: "noble-server-cloudimg-amd64.img"
+          - vmid: 1001
+            name: alpine-3.22
+            qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-metal.qcow2"
       - hostname: prox0.pcola.moorenix.com
         node: prox0
         api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
@@ -75,6 +82,9 @@
           - vmid: 1000
             name: ubuntu-noble
             qcow2_file: "noble-server-cloudimg-amd64.img"
+          - vmid: 1001
+            name: alpine-3.22
+            qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-metal.qcow2"
 
   tasks:
     - name: Create VM for template
