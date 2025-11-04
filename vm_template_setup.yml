@@ -12,8 +12,8 @@
         name: "noble-server-cloudimg-amd64.img"
         vm_name: "ubuntu-noble"
         vmid: 1000
-      - url: "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/cloud/generic_alpine-3.22.2-x86_64-uefi-cloudinit-metal-r0.qcow2"
-        name: "alpine-3.22.2-x86_64-uefi-cloudinit-metal.qcow2"
+      - url: "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/cloud/generic_alpine-3.22.2-x86_64-uefi-cloudinit-r0.qcow2"
+        name: "alpine-3.22.2-x86_64-uefi-cloudinit-generic.qcow2"
         vm_name: "alpine-3.22"
         vmid: 1001
 
@@ -46,8 +46,21 @@
 
     - name: Install qemu-guest-agent in qcow2 images using virt-customize
       ansible.builtin.command:
-        cmd: virt-customize -a {{ qcow2_storage_path }}/{{ item.name }} --install qemu-guest-agent
+        cmd: >
+          virt-customize -a {{ qcow2_storage_path }}/{{ item.name }}
+          --install qemu-guest-agent
+          --run-command 'rc-update add qemu-guest-agent default || systemctl enable qemu-guest-agent || true'
       loop: "{{ qcow2_images }}"
+      changed_when: true
+
+    - name: Configure Alpine images for NoCloud datasource
+      ansible.builtin.command:
+        cmd: >
+          virt-customize -a {{ qcow2_storage_path }}/{{ item.name }}
+          --run-command "sed -i '/^datasource_list:/d' /etc/cloud/cloud.cfg"
+          --run-command 'printf "datasource_list: [ NoCloud ]\n" > /etc/cloud/cloud.cfg.d/99_datasources.cfg'
+      loop: "{{ qcow2_images }}"
+      when: "'alpine' in item.name"
       changed_when: true
 
 - name: Create VM templates
@@ -73,7 +86,7 @@
             qcow2_file: "noble-server-cloudimg-amd64.img"
           - vmid: 1001
             name: alpine-3.22
-            qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-metal.qcow2"
+            qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-generic.qcow2"
       - hostname: prox0.pcola.moorenix.com
         node: prox0
         api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
@@ -84,7 +97,7 @@
             qcow2_file: "noble-server-cloudimg-amd64.img"
           - vmid: 1001
             name: alpine-3.22
-            qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-metal.qcow2"
+            qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-generic.qcow2"
 
   tasks:
     - name: Create VM for template
@@ -102,8 +115,8 @@
         scsihw: virtio-scsi-pci
         net:
           net0: "virtio,bridge=vmbr0"
-        ide:
-          ide2: "{{ item.0.storage }}:cloudinit"
+        sata:
+          sata0: "{{ item.0.storage }}:cloudinit,media=cdrom"
         boot: "order=scsi0"
         state: present
       loop: "{{ template_configs | subelements('templates') }}"
