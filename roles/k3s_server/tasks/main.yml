@@ -1,0 +1,57 @@
+---
+- name: Check if k3s server is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Download k3s installation script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /tmp/k3s-install.sh
+    mode: '0755'
+  when: not k3s_binary.stat.exists
+
+- name: Install k3s server
+  ansible.builtin.shell: |
+    INSTALL_K3S_SKIP_START=false \
+    INSTALL_K3S_EXEC="server \
+      --disable=traefik \
+      --disable=servicelb \
+      --write-kubeconfig-mode=644 \
+      --node-name={{ inventory_hostname }} \
+      --tls-san={{ ansible_host }} \
+      --cluster-init" \
+    /tmp/k3s-install.sh
+  args:
+    creates: /etc/systemd/system/k3s.service
+  notify: Restart k3s
+  when: not k3s_binary.stat.exists
+
+- name: Wait for k3s server to be ready
+  ansible.builtin.wait_for:
+    path: /etc/rancher/k3s/k3s.yaml
+    timeout: 300
+
+- name: Get k3s node token
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token
+  run_once: true
+
+- name: Save k3s token to localhost
+  ansible.builtin.copy:
+    content: "{{ k3s_token.content | b64decode }}"
+    dest: /tmp/k3s-token
+    mode: '0600'
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Display k3s server status
+  ansible.builtin.command: /usr/local/bin/k3s kubectl get nodes
+  register: k3s_nodes
+  changed_when: false
+
+- name: Show k3s cluster nodes
+  ansible.builtin.debug:
+    var: k3s_nodes.stdout_lines

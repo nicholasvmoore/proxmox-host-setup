@@ -1,0 +1,22 @@
+---
+k3s_nodes:
+  - name: k3s-node-01
+    vmid: 300
+    cores: 4
+    memory: 8192  # 8GB in MB
+    hostname: k3s-node-01.pcola.moorenix.com
+    role: server  # Control plane node
+  - name: k3s-node-02
+    vmid: 301
+    cores: 4
+    memory: 8192  # 8GB in MB
+    hostname: k3s-node-02.pcola.moorenix.com
+    role: agent  # Worker node
+  - name: k3s-node-03
+    vmid: 302
+    cores: 4
+    memory: 8192  # 8GB in MB
+    hostname: k3s-node-03.pcola.moorenix.com
+    role: agent  # Worker node
+
+k3s_vmids: [300, 301, 302]

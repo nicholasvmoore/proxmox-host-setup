@@ -1,0 +1,37 @@
+---
+- name: Check if k3s agent is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Get k3s token from localhost
+  ansible.builtin.slurp:
+    src: /tmp/k3s-token
+  register: k3s_token_file
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Download k3s installation script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /tmp/k3s-install.sh
+    mode: '0755'
+  when: not k3s_binary.stat.exists
+
+- name: Install k3s agent
+  ansible.builtin.shell: |
+    K3S_URL=https://{{ hostvars[groups['k3s_servers'][0]].ansible_host }}:6443 \
+    K3S_TOKEN={{ k3s_token_file.content | b64decode | trim }} \
+    INSTALL_K3S_EXEC="agent \
+      --node-name={{ inventory_hostname }}" \
+    /tmp/k3s-install.sh
+  args:
+    creates: /etc/systemd/system/k3s-agent.service
+  notify: Restart k3s-agent
+  when: not k3s_binary.stat.exists
+
+- name: Wait for k3s agent to be ready
+  ansible.builtin.wait_for:
+    port: 10250
+    timeout: 300

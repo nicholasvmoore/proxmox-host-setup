@@ -1,0 +1,108 @@
+---
+- name: Create k3s cluster VMs from template
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - k3s_vm_creation
+
+  vars_files:
+    - ../vars/proxmox_vars.yml
+    - ../vars/k3s_vars.yml
+
+  vars:
+    vm_config:
+      template_vmid: 1001  # alpine-3.22.2 NoCloud template created by vm_template_setup.yml
+      template_name: alpine-3.22  # Pre-configured with iso9660 module + datasource restriction
+      disk_size: 20G
+      proxmox_host: prox0.pcola.moorenix.com
+      node: prox0
+      storage: local-btrfs
+      ciuser: nicholas
+      sshkeys: "{{ lookup('env', 'VM_SSH_KEY') | default(root_pub_key, true) }}"
+
+  tasks:
+    - name: Clone k3s VM from Alpine template
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        node: "{{ vm_config.node }}"
+        clone: "{{ vm_config.template_name }}"
+        newid: "{{ item.vmid }}"
+        name: "{{ item.name }}"
+        full: true
+        state: present
+      loop: "{{ k3s_nodes }}"
+
+    - name: Configure k3s VM resources and cloud-init
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        node: "{{ vm_config.node }}"
+        vmid: "{{ item.vmid }}"
+        cores: "{{ item.cores | default(4) }}"
+        memory: "{{ item.memory | default(8192) }}"
+        machine: q35
+        bios: ovmf
+        agent: "enabled=1"
+        citype: nocloud
+        ciuser: "{{ vm_config.ciuser }}"
+        cipassword: "{{ lookup('env', 'PROXMOX_ROOT_PASSWORD') | default(root_password, true) }}"
+        ciupgrade: true
+        sshkeys: "{{ vm_config.sshkeys }}"
+        ipconfig:
+          ipconfig0: "ip=dhcp"
+        efidisk0:
+          storage: "{{ vm_config.storage }}"
+          format: raw
+          efitype: 4m
+          pre_enrolled_keys: false
+        onboot: true
+        update: true
+        autostart: true
+      loop: "{{ k3s_nodes }}"
+
+    - name: Resize k3s VM disk to configured size
+      community.proxmox.proxmox_disk:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        vmid: "{{ item.vmid }}"
+        disk: scsi0
+        size: "{{ vm_config.disk_size }}"
+        state: resized
+      loop: "{{ k3s_nodes }}"
+
+    - name: Configure k3s VM disk with SSD and trim support
+      community.proxmox.proxmox_disk:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        vmid: "{{ item.vmid }}"
+        disk: scsi0
+        ssd: true
+        discard: on
+        state: present
+      loop: "{{ k3s_nodes }}"
+
+    - name: Display k3s VM configuration
+      ansible.builtin.debug:
+        msg: "Alpine Linux k3s VM {{ item.name }} (ID: {{ item.vmid }}) created with {{ item.cores }} cores, {{ item.memory }}MB RAM, and cloud-init user {{ vm_config.ciuser }}"
+      loop: "{{ k3s_nodes }}"
+
+    - name: Start k3s VMs
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ vm_config.proxmox_host }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+        node: "{{ vm_config.node }}"
+        vmid: "{{ item.vmid }}"
+        state: started
+      loop: "{{ k3s_nodes }}"

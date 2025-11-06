@@ -1,0 +1,9 @@
+---
+# K3s agent configuration
+k3s_version: latest
+
+# Server URL (will be automatically determined from k3s_servers group)
+k3s_server_url: ""
+
+# Additional agent flags
+k3s_agent_flags: ""

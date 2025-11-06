@@ -1,0 +1,10 @@
+---
+# K3s version to install (can be overridden)
+k3s_version: latest
+
+# K3s installation options
+k3s_install_dir: /usr/local/bin
+k3s_config_dir: /etc/rancher/k3s
+
+# Node role (server or agent)
+k3s_node_role: agent
