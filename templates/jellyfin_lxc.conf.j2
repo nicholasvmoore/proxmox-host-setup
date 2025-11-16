@@ -15,7 +15,9 @@ swap: 0
 unprivileged: 0
 
 # Mounting the media directory from the host to the container
-mp0: /lun0/media,mp=/lun0/media
+mp0: /lun0/media/movies,mp=/lun0/media/movies
+mp1: /lun0/media/tv,mp=/lun0/media/tv
+mp2: /lun0/media/adult,mp=/lun0/media/adult
 
 # Allowing Jellyfin to access the Intel GPU device
 lxc.cgroup2.devices.allow: c 226:128 rwm
