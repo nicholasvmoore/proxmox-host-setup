@@ -10,3 +10,6 @@
 
 - name: K3s Cluster Deployment - Phase 3 (Cluster Configuration)
   ansible.builtin.import_playbook: playbooks/k3s-cluster-configure.yml
+
+- name: K3s Cluster Deployment - Phase 4 (GitHub Actions Runner Controller)
+  ansible.builtin.import_playbook: playbooks/github-actions-runner-controller.yml

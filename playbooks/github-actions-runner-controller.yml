@@ -1,0 +1,234 @@
+---
+# GitHub Actions Runner Controller Installation
+# This playbook installs and configures the GitHub Actions Runner Controller on the K3s cluster
+
+- name: Install GitHub Actions Runner Controller
+  hosts: k3s_servers[0]
+  become: true
+  become_method: doas
+  gather_facts: false
+  tags:
+    - arc_install
+    - github_actions
+
+  vars_files:
+    - ../vars/k3s_vars.yml
+    - ../vars/arc_vars.yml
+
+  vars:
+    # GitHub Configuration (to be set via vault or environment)
+    github_app_id: "{{ lookup('env', 'GITHUB_APP_ID') | default('') }}"
+    github_app_private_key: "{{ lookup('env', 'GITHUB_APP_PRIVATE_KEY') | default('') }}"
+    github_app_installation_id: "{{ lookup('env', 'GITHUB_APP_INSTALLATION_ID') | default('') }}"
+    github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('') }}"
+
+  pre_tasks:
+    - name: Verify kubectl access
+      ansible.builtin.command: kubectl cluster-info
+      register: cluster_info
+      changed_when: false
+
+    - name: Display cluster information
+      ansible.builtin.debug:
+        msg: "Installing ARC on cluster: {{ cluster_info.stdout | default('K3s cluster') }}"
+
+  tasks:
+    # Install cert-manager (required prerequisite)
+    - name: Create cert-manager namespace
+      kubernetes.core.k8s:
+        name: "{{ cert_manager_namespace }}"
+        kind: Namespace
+        state: present
+
+    - name: Install cert-manager CRDs
+      ansible.builtin.shell: |
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.crds.yaml
+      register: cert_manager_crds
+      changed_when: cert_manager_crds.rc == 0
+
+    - name: Install cert-manager via kubectl
+      ansible.builtin.shell: |
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml
+      register: cert_manager_install
+      changed_when: cert_manager_install.rc == 0
+
+    - name: Wait for cert-manager to be ready
+      ansible.builtin.command: kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n {{ cert_manager_namespace }}
+      register: cert_manager_ready
+      until: cert_manager_ready.rc == 0
+      retries: 10
+      delay: 30
+      changed_when: false
+
+    # Install Helm (if not already installed)
+    - name: Check if Helm is installed
+      ansible.builtin.command: helm version --short
+      register: helm_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Download Helm
+      when: helm_check.rc != 0
+      ansible.builtin.get_url:
+        url: https://get.helm.sh/helm-v3.15.4-linux-amd64.tar.gz
+        dest: /tmp/helm.tar.gz
+        mode: '0644'
+
+    - name: Extract Helm
+      when: helm_check.rc != 0
+      ansible.builtin.unarchive:
+        src: /tmp/helm.tar.gz
+        dest: /tmp/
+        remote_src: true
+
+    - name: Install Helm binary
+      when: helm_check.rc != 0
+      ansible.builtin.copy:
+        src: /tmp/linux-amd64/helm
+        dest: /usr/local/bin/helm
+        mode: '0755'
+        remote_src: true
+
+    - name: Clean up Helm installation files
+      when: helm_check.rc != 0
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/helm.tar.gz
+        - /tmp/linux-amd64
+
+    # Add Helm repositories
+    - name: Add actions-runner-controller Helm repository
+      ansible.builtin.command: helm repo add actions-runner-controller {{ arc_helm_repo }}
+      register: helm_repo_add
+      changed_when: helm_repo_add.rc == 0
+
+    - name: Update Helm repositories
+      ansible.builtin.command: helm repo update
+      register: helm_repo_update
+      changed_when: helm_repo_update.rc == 0
+
+    # Create ARC namespace
+    - name: Create actions-runner-system namespace
+      kubernetes.core.k8s:
+        name: "{{ arc_namespace }}"
+        kind: Namespace
+        state: present
+
+    # Install ARC via Helm
+    - name: Install actions-runner-controller via Helm
+      ansible.builtin.command: >
+        helm upgrade --install {{ arc_helm_release }} actions-runner-controller/actions-runner-controller
+        --namespace {{ arc_namespace }}
+        --version {{ arc_version }}
+        --set syncPeriod={{ arc_sync_period }}
+        --set webhookServer.enabled={{ arc_webhook_server_enabled | bool | lower }}
+        --wait
+      register: arc_install
+      changed_when: arc_install.rc == 0
+
+    - name: Wait for ARC controller to be ready
+      ansible.builtin.command: kubectl wait --for=condition=available --timeout=300s deployment/actions-runner-controller -n {{ arc_namespace }}
+      register: arc_ready
+      until: arc_ready.rc == 0
+      retries: 10
+      delay: 30
+      changed_when: false
+
+    # Configure GitHub authentication
+    - name: Create GitHub App secret (if GitHub App credentials provided)
+      when: github_app_id != '' and github_app_private_key != '' and github_app_installation_id != ''
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: github-app-secret
+            namespace: "{{ arc_namespace }}"
+          type: Opaque
+          data:
+            github_app_id: "{{ github_app_id | b64encode }}"
+            github_app_private_key: "{{ github_app_private_key | b64encode }}"
+            github_app_installation_id: "{{ github_app_installation_id | b64encode }}"
+
+    - name: Create GitHub token secret (if GitHub token provided)
+      when: github_token != ''
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: github-token-secret
+            namespace: "{{ arc_namespace }}"
+          type: Opaque
+          data:
+            github_token: "{{ github_token | b64encode }}"
+
+    # Create example RunnerDeployment
+    - name: Create example RunnerDeployment
+      when: (github_app_id != '' and github_app_private_key != '' and github_app_installation_id != '') or github_token != ''
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: actions.github.com/v1alpha1
+          kind: RunnerDeployment
+          metadata:
+            name: example-runners
+            namespace: "{{ arc_namespace }}"
+          spec:
+            replicas: "{{ runner_replicas }}"
+            template:
+              spec:
+                repository: "{{ runner_repository }}"
+                labels: "{{ runner_labels }}"
+                containers:
+                - name: runner
+                  image: ghcr.io/actions/actions-runner:latest
+                  env:
+                    - name: RUNNER_FEATURE_FLAG_EPHEMERAL
+                      value: "true"
+                  resources:
+                    requests:
+                      cpu: "{{ runner_cpu_request }}"
+                      memory: "{{ runner_memory_request }}"
+                    limits:
+                      cpu: "{{ runner_cpu_limit }}"
+                      memory: "{{ runner_memory_limit }}"
+
+    # Display installation status
+    - name: Display ARC installation status
+      ansible.builtin.command: kubectl get pods -n {{ arc_namespace }}
+      register: arc_pods
+      changed_when: false
+
+    - name: Show ARC pods
+      ansible.builtin.debug:
+        msg: "{{ arc_pods.stdout_lines }}"
+
+    - name: Display ARC version
+      ansible.builtin.command: helm list -n {{ arc_namespace }}
+      register: arc_version_check
+      changed_when: false
+
+    - name: Show ARC Helm release
+      ansible.builtin.debug:
+        msg: "{{ arc_version_check.stdout_lines }}"
+
+  post_tasks:
+    - name: Display installation completion message
+      ansible.builtin.debug:
+        msg: |
+          GitHub Actions Runner Controller installation completed!
+
+          Next steps:
+          1. Configure GitHub authentication (GitHub App or Personal Access Token)
+          2. Update the RunnerDeployment with your repository/org details
+          3. Scale runners as needed for your workflows
+
+          Useful commands:
+          - kubectl get runnersets -n {{ arc_namespace }}
+          - kubectl get runnerdeployments -n {{ arc_namespace }}
+          - kubectl logs -n {{ arc_namespace }} deployment/actions-runner-controller

@@ -1,0 +1,41 @@
+---
+# GitHub Actions Runner Controller Variables
+# Configuration for deploying ARC to the K3s cluster
+
+# ARC Component Versions
+arc_version: "0.9.3"
+cert_manager_version: "v1.15.3"
+
+# Namespaces
+arc_namespace: actions-runner-system
+cert_manager_namespace: cert-manager
+
+# Helm Configuration
+arc_helm_repo: "https://actions-runner-controller.github.io/actions-runner-controller"
+arc_helm_chart: "actions-runner-controller"
+arc_helm_release: "actions-runner-controller"
+
+# GitHub Configuration
+# These should be set via environment variables or Ansible Vault
+# github_app_id: "your-github-app-id"
+# github_app_private_key: "your-github-app-private-key"
+# github_app_installation_id: "your-github-app-installation-id"
+# github_token: "your-github-personal-access-token"
+
+# Runner Configuration
+runner_replicas: 1
+runner_repository: "moorenix/proxmox-host-setup"  # Replace with your repo
+runner_labels:
+  - self-hosted
+  - linux
+  - x64
+
+# Resource limits for runners
+runner_cpu_request: "500m"
+runner_memory_request: "512Mi"
+runner_cpu_limit: "1000m"
+runner_memory_limit: "1Gi"
+
+# ARC Controller Configuration
+arc_sync_period: "1m"
+arc_webhook_server_enabled: true

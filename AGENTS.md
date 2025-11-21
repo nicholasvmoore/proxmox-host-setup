@@ -27,6 +27,9 @@ ansible-playbook -i inventory playbooks/k3s-vm-create.yml --vault-password-file=
 ansible-playbook -i inventory playbooks/k3s-vm-bootstrap.yml --vault-password-file=~/.ssh/proxmox-key.key
 ansible-playbook -i inventory playbooks/k3s-cluster-configure.yml --vault-password-file=~/.ssh/proxmox-key.key
 
+# Install GitHub Actions Runner Controller
+ansible-playbook -i inventory playbooks/github-actions-runner-controller.yml --vault-password-file=~/.ssh/proxmox-key.key
+
 # Run individual tasks with tags
 ansible-playbook -i inventory main.yml --tags="jellyfin_container_creation"
 ansible-playbook -i inventory k3s-cluster.yml --tags="k3s_server"
@@ -301,6 +304,64 @@ Each role should be:
   register: hostname_check
   failed_when: hostname_check.rc != 0
 ```
+
+## GitHub Actions Integration
+
+### GitHub Actions Runner Controller (ARC)
+
+The project includes automated deployment of the GitHub Actions Runner Controller to enable self-hosted runners on your K3s cluster.
+
+#### Prerequisites
+- **GitHub Authentication**: Either a GitHub App or Personal Access Token
+- **DNS Resolution**: All cluster nodes must be reachable via hostnames
+- **Cert-Manager**: Automatically installed as a prerequisite
+
+#### Installation
+```bash
+# Install ARC on existing cluster
+ansible-playbook -i inventory playbooks/github-actions-runner-controller.yml --vault-password-file=~/.ssh/proxmox-key.key
+```
+
+#### Configuration Options
+
+**GitHub App Authentication (Recommended):**
+```bash
+export GITHUB_APP_ID="your-app-id"
+export GITHUB_APP_PRIVATE_KEY="your-private-key"
+export GITHUB_APP_INSTALLATION_ID="your-installation-id"
+```
+
+**Personal Access Token Authentication:**
+```bash
+export GITHUB_TOKEN="your-personal-access-token"
+```
+
+#### Runner Configuration
+- **Repository**: Configured in `vars/arc_vars.yml`
+- **Labels**: `self-hosted`, `linux`, `x64`
+- **Resources**: CPU/Memory limits and requests
+- **Ephemeral**: Runners are cleaned up after each job
+
+#### Management Commands
+```bash
+# Check ARC status
+kubectl get pods -n actions-runner-system
+
+# View runner deployments
+kubectl get runnerdeployments -n actions-runner-system
+
+# Scale runners
+kubectl scale runnerdeployment example-runners --replicas=3 -n actions-runner-system
+
+# View runner logs
+kubectl logs -n actions-runner-system deployment/actions-runner-controller
+```
+
+#### Security Considerations
+- **Network Policies**: Consider implementing Kubernetes network policies
+- **RBAC**: Limit runner access to necessary resources only
+- **Secrets Management**: Store GitHub credentials securely (Ansible Vault recommended)
+- **Resource Limits**: Configure appropriate CPU/memory limits to prevent resource exhaustion
 
 ## Cursor Rules
 Comprehensive Cursor rules have been generated in `.cursor/rules/` directory:
