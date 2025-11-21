@@ -1,0 +1,24 @@
+---
+template_configs:
+  - hostname: brix.pcola.moorenix.com
+    node: brix
+    api_token_secret: "{{ lookup('env', 'BRIX_API_TOKEN_SECRET') | default(brix_api_token_secret, true) }}"
+    storage: local-lvm
+    templates:
+      - vmid: 1000
+        name: ubuntu-noble
+        qcow2_file: "noble-server-cloudimg-amd64.img"
+      - vmid: 1001
+        name: alpine-3.22
+        qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-generic.qcow2"
+  - hostname: prox0.pcola.moorenix.com
+    node: prox0
+    api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
+    storage: local-btrfs
+    templates:
+      - vmid: 1000
+        name: ubuntu-noble
+        qcow2_file: "noble-server-cloudimg-amd64.img"
+      - vmid: 1001
+        name: alpine-3.22
+        qcow2_file: "alpine-3.22.2-x86_64-uefi-cloudinit-generic.qcow2"

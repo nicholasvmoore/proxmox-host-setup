@@ -8,14 +8,18 @@
     - k3s_software
     - k3s_base
 
+  vars_files:
+    - vars/k3s_vars.yml
+
   roles:
     - role: ../roles/k3s_node
 
-- name: Configure k3s server (control plane)
+- name: Configure k3s servers (HA control plane)
   hosts: k3s_servers
   become: true
   become_method: doas
   gather_facts: false
+  serial: 1  # Install servers one at a time for HA stability
   tags:
     - k3s_software
     - k3s_server
@@ -23,19 +27,7 @@
   roles:
     - role: ../roles/k3s_server
 
-- name: Configure k3s agents (worker nodes)
-  hosts: k3s_agents
-  become: true
-  become_method: doas
-  gather_facts: false
-  tags:
-    - k3s_software
-    - k3s_agent
-
-  roles:
-    - role: ../roles/k3s_agent
-
-- name: Display cluster status
+- name: Display HA cluster status
   hosts: k3s_servers[0]
   become: true
   become_method: doas
@@ -44,6 +36,6 @@
     - k3s_software
 
   tasks:
-    - name: Display cluster information
+    - name: Display HA cluster information
       ansible.builtin.debug:
-        msg: "K3s cluster deployed successfully. Access kubeconfig at /etc/rancher/k3s/k3s.yaml on {{ inventory_hostname }}"
+        msg: "K3s HA cluster deployed successfully with {{ groups['k3s_servers'] | length }} control plane nodes. Access kubeconfig at /etc/rancher/k3s/k3s.yaml on any server node"

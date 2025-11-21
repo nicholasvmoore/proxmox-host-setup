@@ -65,10 +65,9 @@
       loop: "{{ k3s_nodes }}"
       changed_when: false
 
-    - name: Add k3s nodes to inventory with IPs
+    - name: Add k3s nodes to dynamic inventory groups
       ansible.builtin.add_host:
         name: "{{ item.item.hostname }}"
-        ansible_host: "{{ item.stdout }}"
         ansible_user: nicholas
         groups:
           - k3s_nodes_dynamic
@@ -76,10 +75,27 @@
       loop: "{{ vm_ips.results }}"
       delegate_to: localhost
 
-    - name: Display k3s node IPs
+    - name: Display k3s node connectivity
       ansible.builtin.debug:
-        msg: "{{ item.item.name }} ({{ item.item.hostname }}) has IP: {{ item.stdout }}"
+        msg: "{{ item.item.name }} ({{ item.item.hostname }}) is reachable at IP: {{ item.stdout }}"
       loop: "{{ vm_ips.results }}"
+
+- name: Verify hostname resolution
+  hosts: k3s_nodes_dynamic
+  gather_facts: false
+
+  tasks:
+    - name: Test DNS resolution for all cluster nodes
+      ansible.builtin.command: "getent hosts {{ item }}"
+      loop: "{{ groups['k3s_servers'] }}"
+      register: dns_check
+      failed_when: dns_check.rc != 0
+
+    - name: Display DNS resolution results
+      ansible.builtin.debug:
+        msg: "DNS resolution successful for {{ item.item }}"
+      loop: "{{ dns_check.results }}"
+      when: dns_check.rc == 0
 
 - name: Wait for k3s cluster nodes to be online
   hosts: k3s_nodes_dynamic

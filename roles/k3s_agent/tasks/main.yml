@@ -17,7 +17,8 @@
     url: https://get.k3s.io
     dest: /tmp/k3s-install.sh
     mode: '0755'
-  when: not k3s_binary.stat.exists
+  when:
+    - not k3s_binary.stat.exists
 
 - name: Install k3s agent
   ansible.builtin.shell: |
@@ -29,7 +30,9 @@
   args:
     creates: /etc/systemd/system/k3s-agent.service
   notify: Restart k3s-agent
-  when: not k3s_binary.stat.exists
+  when: 
+    - not k3s_binary.stat.exists
+    - inventory_hostname in groups['k3s_agents']
 
 - name: Wait for k3s agent to be ready
   ansible.builtin.wait_for:

@@ -1,0 +1,39 @@
+---
+- name: Download qcow2 cloud images
+  hosts: proxmox_hosts
+  gather_facts: false
+  tags:
+    - vm_templates
+    - vm_template_download
+
+  vars_files:
+    - vars/qcow2_vars.yml
+
+  tasks:
+    - name: Ensure qemu template directory exists
+      ansible.builtin.file:
+        path: "{{ qcow2_storage_path }}"
+        state: directory
+        mode: '0755'
+      tags:
+        - vm_template_dir
+
+    - name: Download qcow2 cloud images
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ qcow2_storage_path }}/{{ item.name }}"
+        mode: '0644'
+        timeout: 300
+      loop: "{{ qcow2_images }}"
+
+    - name: Verify qcow2 images were downloaded
+      ansible.builtin.stat:
+        path: "{{ qcow2_storage_path }}/{{ item.name }}"
+      register: qcow2_stats
+      loop: "{{ qcow2_images }}"
+
+    - name: Display download results
+      ansible.builtin.debug:
+        msg: "{{ item.item.name }} successfully downloaded ({{ item.stat.size }} bytes)"
+      loop: "{{ qcow2_stats.results }}"
+      when: item.stat.exists

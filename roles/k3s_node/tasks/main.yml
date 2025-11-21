@@ -21,6 +21,7 @@
     regexp: '^rc_cgroup_mode='
     line: 'rc_cgroup_mode="unified"'
     create: true
+    mode: "0644"
   notify: Reboot node
 
 - name: Enable cgroups service

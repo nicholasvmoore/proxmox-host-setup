@@ -18,3 +18,13 @@ docker.pcola.moorenix.com ansible_user=root
 k3s-node-01.pcola.moorenix.com ansible_user=nicholas
 k3s-node-02.pcola.moorenix.com ansible_user=nicholas
 k3s-node-03.pcola.moorenix.com ansible_user=nicholas
+
+[k3s_nodes_dynamic]
+k3s-node-01.pcola.moorenix.com ansible_user=nicholas
+k3s-node-02.pcola.moorenix.com ansible_user=nicholas
+k3s-node-03.pcola.moorenix.com ansible_user=nicholas
+
+[k3s_servers]
+k3s-node-01.pcola.moorenix.com ansible_user=nicholas
+k3s-node-02.pcola.moorenix.com ansible_user=nicholas
+k3s-node-03.pcola.moorenix.com ansible_user=nicholas

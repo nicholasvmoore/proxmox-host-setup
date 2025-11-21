@@ -1,0 +1,67 @@
+---
+- name: Create VM templates
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - vm_templates
+
+  vars_files:
+    - vars/proxmox_vars.yml
+    - vars/qcow2_vars.yml
+    - vars/template_configs.yml
+
+  vars:
+    qcow2_storage_path: "/var/lib/vz/template/qemu"
+  tasks:
+    - name: Create VM for template
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ item.0.hostname }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_password: "{{ lookup('env', 'PROXMOX_ROOT_PASSWORD') | default(root_password, true) }}"
+        node: "{{ item.0.node }}"
+        vmid: "{{ item.1.vmid }}"
+        name: "{{ item.1.name }}"
+        cpu: host
+        sockets: 1
+        cores: 2
+        memory: 4096
+        scsihw: virtio-scsi-pci
+        net:
+          net0: "virtio,bridge=vmbr0"
+        sata:
+          sata0: "{{ item.0.storage }}:cloudinit,media=cdrom"
+        boot: "order=scsi0"
+        state: present
+      loop: "{{ template_configs | subelements('templates') }}"
+      loop_control:
+        label: "{{ item.0.hostname }} - {{ item.1.name }}"
+
+    - name: Import disk from qcow2 image
+      community.proxmox.proxmox_disk:
+        api_host: "{{ item.0.hostname }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_password: "{{ lookup('env', 'PROXMOX_ROOT_PASSWORD') | default(root_password, true) }}"
+        vmid: "{{ item.1.vmid }}"
+        disk: scsi0
+        storage: "{{ item.0.storage }}"
+        import_from: "{{ qcow2_storage_path }}/{{ item.1.qcow2_file }}"
+        state: present
+      loop: "{{ template_configs | subelements('templates') }}"
+      loop_control:
+        label: "{{ item.0.hostname }} - {{ item.1.name }}"
+
+    - name: Convert VM to template
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ item.0.hostname }}"
+        api_user: "{{ lookup('env', 'PROXMOX_API_USER') | default(api_user, true) | default('root@pam') }}"
+        api_token_id: "{{ lookup('env', 'PROXMOX_API_TOKEN_ID') | default(api_token_id, true) | default('automation') }}"
+        api_token_secret: "{{ item.0.api_token_secret }}"
+        node: "{{ item.0.node }}"
+        vmid: "{{ item.1.vmid }}"
+        template: true
+        update: true
+      loop: "{{ template_configs | subelements('templates') }}"
+      loop_control:
+        label: "{{ item.0.hostname }} - {{ item.1.name }}"
+

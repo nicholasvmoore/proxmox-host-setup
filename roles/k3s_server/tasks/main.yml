@@ -11,7 +11,7 @@
     mode: '0755'
   when: not k3s_binary.stat.exists
 
-- name: Install k3s server
+- name: Install k3s server (initialize cluster)
   ansible.builtin.shell: |
     INSTALL_K3S_SKIP_START=false \
     INSTALL_K3S_EXEC="server \
@@ -25,18 +25,73 @@
   args:
     creates: /etc/systemd/system/k3s.service
   notify: Restart k3s
-  when: not k3s_binary.stat.exists
+  when:
+    - not k3s_binary.stat.exists
+    - inventory_hostname == groups['k3s_servers'][0]
+
+- name: Wait for first server to initialize cluster
+  ansible.builtin.pause:
+    seconds: 30
+  when:
+    - not k3s_binary.stat.exists
+    - inventory_hostname != groups['k3s_servers'][0]
+  delegate_to: localhost
+  run_once: true
+
+- name: Get k3s token from first server
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  register: k3s_token
+  delegate_to: "{{ groups['k3s_servers'][0] }}"
+  become: true
+  when:
+    - not k3s_binary.stat.exists
+    - inventory_hostname != groups['k3s_servers'][0]
+  run_once: true
+
+- name: Save k3s token to localhost for joining servers
+  ansible.builtin.copy:
+    content: "{{ k3s_token.content | b64decode }}"
+    dest: /tmp/k3s-token
+    mode: '0600'
+  delegate_to: localhost
+  become: false
+  when:
+    - not k3s_binary.stat.exists
+    - inventory_hostname != groups['k3s_servers'][0]
+  run_once: true
+
+- name: Install additional k3s servers (join cluster)
+  ansible.builtin.shell: |
+    K3S_TOKEN={{ lookup('file', '/tmp/k3s-token') }} \
+    INSTALL_K3S_SKIP_START=false \
+    INSTALL_K3S_EXEC="server \
+      --disable=traefik \
+      --disable=servicelb \
+      --write-kubeconfig-mode=644 \
+      --node-name={{ inventory_hostname }} \
+      --tls-san={{ ansible_host }} \
+      --server=https://{{ hostvars[groups['k3s_servers'][0]].ansible_host }}:6443" \
+    /tmp/k3s-install.sh
+  args:
+    creates: /etc/systemd/system/k3s.service
+  notify: Restart k3s
+  when:
+    - not k3s_binary.stat.exists
+    - inventory_hostname != groups['k3s_servers'][0]
 
 - name: Wait for k3s server to be ready
   ansible.builtin.wait_for:
     path: /etc/rancher/k3s/k3s.yaml
     timeout: 300
 
-- name: Get k3s node token
+- name: Get k3s node token (from first server)
   ansible.builtin.slurp:
     src: /var/lib/rancher/k3s/server/node-token
   register: k3s_token
-  run_once: true
+  delegate_to: "{{ groups['k3s_servers'][0] }}"
+  become: true
+  when: inventory_hostname == groups['k3s_servers'][0]
 
 - name: Save k3s token to localhost
   ansible.builtin.copy:
@@ -45,7 +100,7 @@
     mode: '0600'
   delegate_to: localhost
   become: false
-  run_once: true
+  when: inventory_hostname == groups['k3s_servers'][0]
 
 - name: Display k3s server status
   ansible.builtin.command: /usr/local/bin/k3s kubectl get nodes

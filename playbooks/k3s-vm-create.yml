@@ -44,6 +44,7 @@
         api_token_secret: "{{ lookup('env', 'PROX0_API_TOKEN_SECRET') | default(prox0_api_token_secret, true) }}"
         node: "{{ vm_config.node }}"
         vmid: "{{ item.vmid }}"
+        name: "{{ item.hostname }}"  # Use FQDN as VM name for hostname resolution
         cores: "{{ item.cores | default(4) }}"
         memory: "{{ item.memory | default(8192) }}"
         machine: q35

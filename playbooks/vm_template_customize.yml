@@ -1,0 +1,29 @@
+---
+- name: Configure Apline Linux VM Template
+  hosts: proxmox_hosts
+  gather_facts: false
+  tags:
+    - configure_vm_templates
+
+  vars_files:
+    - vars/qcow2_vars.yml
+
+  tasks:
+    - name: Install qemu-guest-agent in qcow2 images using virt-customize
+      ansible.builtin.command:
+        cmd: >
+          virt-customize -a {{ qcow2_storage_path }}/{{ item.name }}
+          --install qemu-guest-agent
+          --run-command 'rc-update add qemu-guest-agent default || systemctl enable qemu-guest-agent || true'
+      loop: "{{ qcow2_images }}"
+      changed_when: true
+
+    - name: Configure Alpine images for NoCloud datasource
+      ansible.builtin.command:
+        cmd: >
+          virt-customize -a {{ qcow2_storage_path }}/{{ item.name }}
+          --run-command "sed -i '/^datasource_list:/d' /etc/cloud/cloud.cfg"
+          --run-command 'printf "datasource_list: [ NoCloud ]\n" > /etc/cloud/cloud.cfg.d/99_datasources.cfg'
+      loop: "{{ qcow2_images }}"
+      when: "'alpine' in item.name"
+      changed_when: true

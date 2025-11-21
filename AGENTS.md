@@ -19,6 +19,7 @@ ansible-playbook -i inventory proxmox_host_setup.yml --vault-password-file=~/.ss
 ansible-playbook -i inventory jellyfin.yml --vault-password-file=~/.ssh/ansible_key.key
 
 # Run k3s cluster deployment (modular structure example)
+# NOTE: Ensure DNS resolution works for all hostnames before running
 ansible-playbook -i inventory k3s-cluster.yml --vault-password-file=~/.ssh/proxmox-key.key
 
 # Run individual phases
@@ -29,6 +30,117 @@ ansible-playbook -i inventory playbooks/k3s-cluster-configure.yml --vault-passwo
 # Run individual tasks with tags
 ansible-playbook -i inventory main.yml --tags="jellyfin_container_creation"
 ansible-playbook -i inventory k3s-cluster.yml --tags="k3s_server"
+```
+
+## Development Workflow
+
+### Testing Before Commit
+**ALWAYS test changes before committing and pushing** - this ensures code quality and prevents broken deployments:
+
+#### 1. **Syntax Validation**
+```bash
+# Lint all YAML files
+yamllint .
+
+# Lint Ansible playbooks and roles
+ansible-lint
+
+# Check for YAML syntax errors specifically
+python -c "import yaml; yaml.safe_load(open('file.yml'))"
+```
+
+#### 2. **Dry-Run Testing**
+```bash
+# Test playbooks with --check (dry-run mode)
+ansible-playbook -i inventory playbook.yml --check --vault-password-file=~/.ssh/vault.key
+
+# Test specific tags
+ansible-playbook -i inventory main.yml --tags="component" --check
+
+# Test variable syntax
+ansible-playbook -i inventory playbook.yml --syntax-check
+```
+
+#### 3. **Functional Testing**
+```bash
+# Test connectivity to hosts
+ansible -i inventory all -m ping
+
+# Test specific modules
+ansible -i inventory group -m command -a "uptime"
+
+# Test role functionality on single host
+ansible-playbook -i inventory playbook.yml --limit hostname
+```
+
+#### 4. **Integration Testing**
+```bash
+# Test complete workflows
+ansible-playbook -i inventory k3s-cluster.yml --check --vault-password-file=~/.ssh/proxmox-key.key
+
+# Verify DNS resolution before cluster deployment
+ansible -i inventory k3s_nodes -m command -a "getent hosts {{ inventory_hostname }}"
+
+# Test service availability
+ansible -i inventory k3s_servers -m command -a "sudo systemctl status k3s"
+```
+
+### Commit and Push Guidelines
+
+#### Before Committing:
+- ✅ **All tests pass** - syntax, linting, and dry-run
+- ✅ **Documentation updated** - AGENTS.md reflects changes
+- ✅ **No hardcoded values** - use variables and vault for secrets
+- ✅ **Idempotent changes** - playbooks can run multiple times safely
+- ✅ **Peer review** - share changes for feedback when possible
+
+#### Commit Message Format:
+```bash
+# Feature commits
+feat: add HA k3s cluster support
+feat: implement hostname-first networking
+
+# Fix commits
+fix: resolve DNS resolution issues in bootstrap
+fix: correct k3s server join logic
+
+# Documentation commits
+docs: update AGENTS.md with testing guidelines
+docs: add DNS troubleshooting section
+
+# Refactor commits
+refactor: simplify VM creation playbook
+refactor: consolidate role variables
+```
+
+#### Push Checklist:
+- 🔍 **Test in staging** - deploy to test environment first
+- 📋 **Backup critical data** - ensure recovery possible
+- 🚨 **Review impact** - check for service disruptions
+- 📝 **Update runbooks** - document any operational changes
+- 🏷️ **Version tagging** - tag releases for rollback capability
+
+### Troubleshooting Failed Tests
+
+#### Common Issues:
+- **Connection failures**: Check SSH keys, firewall rules, DNS resolution
+- **Permission errors**: Verify vault passwords, sudo access, API tokens
+- **Variable undefined**: Check variable files, vault encryption, group_vars
+- **Module failures**: Test modules individually, check Ansible version compatibility
+
+#### Debug Commands:
+```bash
+# Increase verbosity
+ansible-playbook -i inventory playbook.yml -vvv
+
+# Debug specific tasks
+ansible-playbook -i inventory playbook.yml --step --check
+
+# Test variable values
+ansible -i inventory hostname -m debug -a "var=variable_name"
+
+# Check facts gathering
+ansible -i inventory hostname -m setup | grep "ansible_"
 ```
 
 ## Project Architecture
@@ -66,6 +178,13 @@ vars/
 └── k3s_vars.yml                   # Node definitions with roles
 ```
 
+**DNS Requirements for K3s HA Clusters:**
+- All nodes must be resolvable by hostname from all other nodes
+- Use FQDNs in `k3s_vars.yml` (e.g., `k3s-node-01.example.com`)
+- Configure DNS server or `/etc/hosts` entries via Ansible
+- K3s server join commands use `--server=https://hostname:6443` format
+- TLS certificates include hostname SANs for secure communication
+
 ### Architecture Principles
 
 #### 1. Separation of Concerns
@@ -73,13 +192,21 @@ vars/
 - **Roles**: Software configuration (idempotent, reusable, platform-agnostic)
 - **Variables**: Single source of truth (centralized in vars/)
 
-#### 2. Phase-Based Execution
+#### 2. Hostname-First Networking
+**ALWAYS use hostnames instead of IP addresses** for all configurations:
+- **Ansible inventory**: Define hosts by fully qualified domain names (FQDN)
+- **K3s cluster URLs**: Use `--server=https://hostname:6443` format
+- **Service discovery**: Rely on DNS resolution, never hardcode IPs
+- **TLS certificates**: Generate certificates with hostname SANs
+- **No manual intervention**: All networking must be automated through Ansible
+
+#### 3. Phase-Based Execution
 Break deployments into logical phases:
 1. **Infrastructure**: Create VMs/containers, configure resources
 2. **Bootstrap**: Wait for initialization, discover IPs, prepare access
 3. **Configure**: Install software, apply roles, verify deployment
 
-#### 3. Dynamic Inventory
+#### 4. Dynamic Inventory
 For VM-based deployments:
 - Use qemu-guest-agent for IP discovery
 - Create dynamic inventory groups based on roles
@@ -105,6 +232,8 @@ Each role should be:
 - **Guest Agent**: Install qemu-guest-agent for IP discovery and management
 - **Hardware Acceleration**: Map /dev/dri devices with proper UID/GID
 - **UEFI**: Use efidisk0 with q35 machine type
+- **DNS Configuration**: Ensure hostname resolution works via DNS or hosts file
+- **Network Setup**: Configure static hostnames in cloud-init metadata
 
 ## Code Style
 - Use proper Ansible indentation
@@ -120,6 +249,58 @@ Each role should be:
 - **Playbook files**: Infrastructure logic, direct module calls
 - **Role files**: Configuration logic, idempotent operations
 - **Delegate to localhost**: Always set `become: false` to avoid doas/sudo issues
+- **Hostname usage**: Always use FQDNs, never hardcode IP addresses in configurations
+- **DNS dependency**: Ensure all services can resolve hostnames before deployment
+
+## DNS and Hostname Management
+
+### Requirements
+- **FQDN Usage**: All hosts must be defined with fully qualified domain names
+- **DNS Resolution**: Hostnames must resolve from all nodes in the cluster
+- **No IP Dependencies**: Configurations must not rely on hardcoded IP addresses
+- **Automated Setup**: DNS or hosts file entries must be managed through Ansible
+
+### Common DNS Issues and Solutions
+
+#### 1. Hostname Resolution Failures
+**Symptoms**: `ping hostname` fails, services can't connect to each other
+**Solutions**:
+- Verify DNS server configuration in `/etc/resolv.conf`
+- Add entries to `/etc/hosts` via Ansible `ansible.builtin.lineinfile`
+- Ensure cloud-init sets correct hostname in VM metadata
+
+#### 2. K3s Cluster Join Failures
+**Symptoms**: Additional servers fail to join with "connection refused" errors
+**Solutions**:
+- Verify first server hostname resolves: `nslookup k3s-node-01.example.com`
+- Check K3s server URL uses hostname: `--server=https://hostname:6443`
+- Ensure firewall allows traffic on port 6443 between nodes
+
+#### 3. Certificate Validation Errors
+**Symptoms**: TLS handshake failures, certificate validation errors
+**Solutions**:
+- K3s automatically generates certificates with hostname SANs
+- Ensure `--tls-san=hostname` is used during server initialization
+- Verify hostname matches certificate common name
+
+### Ansible DNS Configuration Patterns
+
+```yaml
+# Add hosts entries for cluster nodes
+- name: Configure /etc/hosts for cluster DNS resolution
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.hostname }} {{ item.shortname }}"
+    state: present
+  loop: "{{ cluster_nodes }}"
+  when: dns_server is not defined
+
+# Verify hostname resolution
+- name: Test hostname resolution
+  ansible.builtin.command: "getent hosts {{ inventory_hostname }}"
+  register: hostname_check
+  failed_when: hostname_check.rc != 0
+```
 
 ## Cursor Rules
 Comprehensive Cursor rules have been generated in `.cursor/rules/` directory:

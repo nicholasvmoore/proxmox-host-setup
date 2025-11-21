@@ -1,0 +1,11 @@
+---
+qcow2_storage_path: "/var/lib/vz/template/qemu"
+qcow2_images:
+  - url: "https://cloud-images.ubuntu.com/noble/20251001/noble-server-cloudimg-amd64.img"
+    name: "noble-server-cloudimg-amd64.img"
+    vm_name: "ubuntu-noble"
+    vmid: 1000
+  - url: "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/cloud/generic_alpine-3.22.2-x86_64-uefi-cloudinit-r0.qcow2"
+    name: "alpine-3.22.2-x86_64-uefi-cloudinit-generic.qcow2"
+    vm_name: "alpine-3.22"
+    vmid: 1001

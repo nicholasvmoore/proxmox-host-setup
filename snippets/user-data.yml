@@ -1,4 +1,7 @@
 #cloud-config
+hostname: ${hostname}
+fqdn: ${hostname}
+
 users:
   - name: nicholas
     groups: wheel
@@ -41,3 +44,4 @@ runcmd:
 
 # Final message
 final_message: "Alpine Linux k3s node is ready"
+

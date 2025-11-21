@@ -14,3 +14,6 @@
 
 - name: Install Jellyfin in LXC Container
   ansible.builtin.import_playbook: jellyfin.yml
+
+- name: K3s Cluster Deployment
+  ansible.builtin.import_playbook: k3s-cluster.yml
