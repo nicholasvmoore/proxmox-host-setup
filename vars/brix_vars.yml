@@ -2,32 +2,32 @@
 # Disk paths for openSeaChest power control on brix host
 disk_spindown_paths:
   - path: /dev/disk/by-path/pci-0000:04:00.0-ata-1
-    idle_a: null
-    idle_b: 1800000
+    idle_a: 0
+    idle_b: 0
     idle_c: 2400000
-    standby_z: disabled
+    standby_z: disable
   - path: /dev/disk/by-path/pci-0000:04:00.0-ata-2
-    idle_a: null
-    idle_b: 1800000
+    idle_a: 0
+    idle_b: 0
     idle_c: 2400000
-    standby_z: disabled
+    standby_z: disable
   - path: /dev/disk/by-path/pci-0000:04:00.0-ata-3
-    idle_a: null
-    idle_b: 1800000
+    idle_a: 0
+    idle_b: 0
     idle_c: 2400000
-    standby_z: disabled
+    standby_z: disable
   - path: /dev/disk/by-path/pci-0000:00:17.0-ata-6
-    idle_a: 1000
-    idle_b: 1800000
+    idle_a: 0
+    idle_b: 0
     idle_c: 2400000
-    standby_z: disabled
+    standby_z: disable
   - path: /dev/disk/by-path/pci-0000:04:00.0-ata-4
-    idle_a: 1000
-    idle_b: 1800000
+    idle_a: 0
+    idle_b: 0
     idle_c: 2400000
-    standby_z: disabled
+    standby_z: disable
   - path: /dev/disk/by-path/pci-0000:04:00.0-ata-5
-    idle_a: 1000
-    idle_b: 1800000
+    idle_a: 0
+    idle_b: 0
     idle_c: 2400000
-    standby_z: disabled
+    standby_z: disable
