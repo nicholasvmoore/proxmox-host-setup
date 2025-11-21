@@ -344,6 +344,9 @@ export GITHUB_TOKEN="your-personal-access-token"
 
 #### Management Commands
 ```bash
+# Set up kubectl access (from control machine)
+kubectl config use-context default  # or appropriate context
+
 # Check ARC status
 kubectl get pods -n actions-runner-system
 
