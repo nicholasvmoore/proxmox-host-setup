@@ -22,44 +22,10 @@
     github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('') }}"
 
   pre_tasks:
-    - name: Get kubeconfig from remote cluster
-      ansible.builtin.slurp:
-        src: /etc/rancher/k3s/k3s.yaml
-      register: kubeconfig_content
-      delegate_to: "{{ groups['k3s_servers'][0] }}"
-      become: true
-
-    - name: Set up kubectl configuration
-      ansible.builtin.copy:
-        content: "{{ kubeconfig_content.content | b64decode }}"
-        dest: ~/.kube/config
-        mode: '0600'
-
-    - name: Update kubeconfig server URL for external access
-      ansible.builtin.replace:
-        path: ~/.kube/config
-        regexp: 'server: https://127.0.0.1:6443'
-        replace: "server: https://{{ groups['k3s_servers'][0] }}:6443"
-
-    - name: Check if kubectl is installed
-      ansible.builtin.command: which kubectl
-      register: kubectl_check
-      ignore_errors: true
-      changed_when: false
-
-    - name: Install kubectl if not present
-      when: kubectl_check.rc != 0
-      ansible.builtin.get_url:
-        url: https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl
-        dest: ~/.local/bin/kubectl
-        mode: '0755'
-
-    - name: Verify kubectl access to remote cluster
-      ansible.builtin.command: ~/.local/bin/kubectl cluster-info
+    - name: Verify kubectl access to cluster
+      ansible.builtin.command: kubectl cluster-info
       register: cluster_info
       changed_when: false
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     - name: Display cluster information
       ansible.builtin.debug:
@@ -75,29 +41,23 @@
 
     - name: Install cert-manager CRDs
       ansible.builtin.shell: |
-        ~/.local/bin/kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.crds.yaml
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.crds.yaml
       register: cert_manager_crds
       changed_when: cert_manager_crds.rc == 0
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     - name: Install cert-manager via kubectl
       ansible.builtin.shell: |
-        ~/.local/bin/kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml
       register: cert_manager_install
       changed_when: cert_manager_install.rc == 0
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     - name: Wait for cert-manager to be ready
-      ansible.builtin.command: ~/.local/bin/kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n {{ cert_manager_namespace }}
+      ansible.builtin.command: kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n {{ cert_manager_namespace }}
       register: cert_manager_ready
       until: cert_manager_ready.rc == 0
       retries: 10
       delay: 30
       changed_when: false
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     # Install Helm (if not already installed)
     - name: Check if Helm is installed
@@ -146,18 +106,14 @@
 
     # Add Helm repositories
     - name: Add actions-runner-controller Helm repository
-      ansible.builtin.command: ~/.local/bin/helm repo add actions-runner-controller {{ arc_helm_repo }}
+      ansible.builtin.command: helm repo add actions-runner-controller {{ arc_helm_repo }}
       register: helm_repo_add
       changed_when: helm_repo_add.rc == 0
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     - name: Update Helm repositories
-      ansible.builtin.command: ~/.local/bin/helm repo update
+      ansible.builtin.command: helm repo update
       register: helm_repo_update
       changed_when: helm_repo_update.rc == 0
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     # Create ARC namespace
     - name: Create actions-runner-system namespace
@@ -169,26 +125,22 @@
     # Install ARC via Helm
     - name: Install actions-runner-controller via Helm
       ansible.builtin.command: >
-        ~/.local/bin/helm upgrade --install {{ arc_helm_release }} actions-runner-controller/actions-runner-controller
+        helm upgrade --install {{ arc_helm_release }} actions-runner-controller/actions-runner-controller
         --namespace {{ arc_namespace }}
         --version {{ arc_version }}
         --set syncPeriod={{ arc_sync_period }}
         --set webhookServer.enabled={{ arc_webhook_server_enabled | bool | lower }}
-        --wait
       register: arc_install
       changed_when: arc_install.rc == 0
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     - name: Wait for ARC controller to be ready
-      ansible.builtin.command: ~/.local/bin/kubectl wait --for=condition=available --timeout=300s deployment/actions-runner-controller -n {{ arc_namespace }}
+      ansible.builtin.command: kubectl wait --for=condition=available --timeout=60s deployment/actions-runner-controller -n {{ arc_namespace }}
       register: arc_ready
       until: arc_ready.rc == 0
-      retries: 10
-      delay: 30
+      retries: 3
+      delay: 10
       changed_when: false
-      environment:
-        KUBECONFIG: ~/.kube/config
+      ignore_errors: true
 
     # Configure GitHub authentication
     - name: Create GitHub App secret (if GitHub App credentials provided)
@@ -254,22 +206,18 @@
 
     # Display installation status
     - name: Display ARC installation status
-      ansible.builtin.command: ~/.local/bin/kubectl get pods -n {{ arc_namespace }}
+      ansible.builtin.command: kubectl get pods -n {{ arc_namespace }}
       register: arc_pods
       changed_when: false
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     - name: Show ARC pods
       ansible.builtin.debug:
         msg: "{{ arc_pods.stdout_lines }}"
 
     - name: Display ARC version
-      ansible.builtin.command: ~/.local/bin/helm list -n {{ arc_namespace }}
+      ansible.builtin.command: helm list -n {{ arc_namespace }}
       register: arc_version_check
       changed_when: false
-      environment:
-        KUBECONFIG: ~/.kube/config
 
     - name: Show ARC Helm release
       ansible.builtin.debug:
@@ -287,6 +235,6 @@
           3. Scale runners as needed for your workflows
 
           Useful commands:
-          - ~/.local/bin/kubectl get runnersets -n {{ arc_namespace }}
-          - ~/.local/bin/kubectl get runnerdeployments -n {{ arc_namespace }}
-          - ~/.local/bin/kubectl logs -n {{ arc_namespace }} deployment/actions-runner-controller
+          - kubectl get runnersets -n {{ arc_namespace }}
+          - kubectl get runnerdeployments -n {{ arc_namespace }}
+          - kubectl logs -n {{ arc_namespace }} deployment/actions-runner-controller

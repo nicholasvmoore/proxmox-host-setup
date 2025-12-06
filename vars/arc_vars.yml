@@ -3,7 +3,7 @@
 # Configuration for deploying ARC to the K3s cluster
 
 # ARC Component Versions
-arc_version: "0.9.3"
+arc_version: "0.23.7"
 cert_manager_version: "v1.15.3"
 
 # Namespaces
